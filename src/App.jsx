@@ -31,7 +31,7 @@ const font = {
 // ── Screen IDs ──
 const S = {
   OVERVIEW: 0, INVITE: 1, ABOUT: 12, APPLY: 2, ELICIT_INTRO: 3, ELICIT_CHAT: 4,
-  UNDERSTOOD: 5, MATCH: 6, CONSENT: 7, HANDOFF: 8,
+  UNDERSTOOD: 5, MATCH: 6, BRIDGE: 13, CONSENT: 7, HANDOFF: 8,
   OUTCOME: 9, GOVERNANCE: 10, TRENDS: 11,
 };
 
@@ -44,11 +44,12 @@ const SCREEN_META = [
   { id: S.ELICIT_CHAT, label: "Elicitation", short: "E" },
   { id: S.UNDERSTOOD, label: "Understanding", short: "F" },
   { id: S.MATCH, label: "Match Rationale", short: "G" },
-  { id: S.CONSENT, label: "Consent", short: "H" },
-  { id: S.HANDOFF, label: "Introduction", short: "I" },
-  { id: S.OUTCOME, label: "Outcome", short: "J" },
-  { id: S.GOVERNANCE, label: "Governance", short: "K" },
-  { id: S.TRENDS, label: "Community", short: "L" },
+  { id: S.BRIDGE, label: "Bridge Pathway", short: "H" },
+  { id: S.CONSENT, label: "Consent", short: "I" },
+  { id: S.HANDOFF, label: "Introduction", short: "J" },
+  { id: S.OUTCOME, label: "Outcome", short: "K" },
+  { id: S.GOVERNANCE, label: "Governance", short: "L" },
+  { id: S.TRENDS, label: "Community", short: "M" },
 ];
 
 // ── Shared Components ──
@@ -217,9 +218,9 @@ const OverviewScreen = ({ onNav }) => (
 
 const overviewNotes = [
   "This screen frames the prototype as a research artefact. It establishes the research question and the scope of the interaction before the viewer enters the flow.",
-  "The broader research landscape was mapped in Framing and Cartography Assessment 1 across six interconnected zones. This prototype addresses one layer within that cartography: the design of relational infrastructure for trusted, purposeful connection.",
-  "The prototype's structure is: one relational arc (invitation → elicitation → understanding → rationale → consent → introduction → outcome), deepened by a governance layer and made cumulatively visible through an anonymised community intelligence view.",
-  "The research question responds directly to Re:Form Assessment 1's finding that legacy elite networks keep the mechanism of connection offstage. This prototype brings that mechanism onstage, but stages it with discretion, explanation, and consent.",
+  "The broader research landscape was mapped in Framing and Cartography Assessment 1 across six interconnected zones. This prototype addresses one layer within that cartography: the design of relational infrastructure for trusted, purposeful connection among stewards of significant capital.",
+  "The prototype's structure is: one relational arc (invitation → elicitation → understanding → rationale → consent → introduction → outcome), deepened by a bridge pathway layer (screen H), a governance screen, and a community intelligence view. The bridge pathway is the most significant structural addition — it is Amber's reputation and recommendation layer, the mechanism by which Amber reaches beyond its direct membership through trusted member networks.",
+  "The research question responds directly to Re:Form Assessment 1's finding that legacy elite networks keep the mechanism of connection offstage. This prototype brings that mechanism onstage — but stages it with discretion, explanation, and consent.",
 ];
 
 // ═══════════════════════════════════════════
@@ -308,9 +309,15 @@ const AboutScreen = ({ onNav }) => (
       }}>About Amber</h2>
       <p style={{
         fontFamily: font.sans, fontSize: 13, color: C.textSecondary,
+        margin: "0 0 6px", lineHeight: 1.7,
+      }}>
+        Amber is private relational infrastructure for stewards of significant capital — designed for people whose decisions carry weight, and for whom the right connection can change the quality of a question, a conversation, or a course of action.
+      </p>
+      <p style={{
+        fontFamily: font.sans, fontSize: 13, color: C.textSecondary,
         margin: "0 0 28px", lineHeight: 1.7,
       }}>
-        Amber is designed for people whose decisions carry weight — and for whom the right connection can change the quality of a question, a conversation, or a course of action.
+        Through its reputation and recommendation layer, Amber can reach beyond its immediate membership — activating trusted member networks when a direct introduction is not available.
       </p>
 
       {/* Who Amber is for */}
@@ -378,7 +385,8 @@ const AboutScreen = ({ onNav }) => (
 );
 
 const aboutNotes = [
-  "This screen does the conceptual and boundary-setting work that the Invitation deliberately avoids. It explains who Amber is for, who it is not for, and why selectivity matters — making the boundary logic more explicit than most elite membership organisations.",
+  "'Private relational infrastructure' distinguishes Amber from networking apps. Infrastructure implies permanence, purpose-built design, and something the community builds on over time — not merely a space to be in. The phrase also signals that Amber's value compounds: every introduction, every outcome, every bridge strengthens the system.",
+  "The reputation and recommendation layer is named explicitly on this screen — members understand before joining that Amber can reach beyond its direct membership through trusted bridges, and that this is governed by strict member controls and the reciprocity principle.",
   "Earlier linguistic analysis of elite membership organisations (The Right Word Assessment 2) found that exclusion is often performed through invitation language, fit signals, and selective access rituals rather than blunt criteria. Amber makes that boundary logic visible and intentional: the excluded categories are named, not implied.",
   "The 'Who Amber is not for' section names specific excluded categories (advisers, consultants, fundraisers). This is necessary because many elite networks fail by admitting intermediaries. But the tone is matter-of-fact, not hostile — it states a structural boundary, not a social judgement.",
   "The selectivity line — 'the quality of the network depends on the quality of its membership' — states the principle plainly. Bourdieu's analysis of social capital reproduction informs the design: controlled access is made transparent rather than mystified.",
@@ -587,7 +595,7 @@ const ElicitIntroScreen = ({ onNav }) => (
         <SectionLabel>What Amber listens for</SectionLabel>
         {[
           { label: "Context", desc: "What you are working on, and what feels most alive" },
-          { label: "Tension", desc: "The questions and trade-offs you are navigating" },
+          { label: "Tension", desc: "The questions and challenges you are navigating" },
           { label: "Counterpart", desc: "What kind of person would be genuinely useful now" },
           { label: "Style", desc: "How you prefer to engage — challenge, affirmation, difference" },
           { label: "Timing", desc: "Whether this is urgent or something unfolding gradually" },
@@ -917,7 +925,7 @@ const understoodNotes = [
 // ═══════════════════════════════════════════
 
 const MatchScreen = ({ onNav }) => {
-  const [matchState, setMatchState] = useState("strong"); // strong | partial | hold
+  const [matchState, setMatchState] = useState("strong"); // strong | partial | bridge | hold
   return (
   <Phone>
     <div style={{ padding: "20px 32px 32px" }}>
@@ -932,11 +940,12 @@ const MatchScreen = ({ onNav }) => {
       <ScreenChip type="member" />
 
       {/* State toggle for prototype demonstration */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
         {[
-          { key: "strong", label: "Strong match" },
-          { key: "partial", label: "Partial overlap" },
-          { key: "hold", label: "Hold" },
+          { key: "strong", label: "Direct" },
+          { key: "partial", label: "Considered" },
+          { key: "bridge", label: "Bridge" },
+          { key: "hold", label: "Watching" },
         ].map(s => (
           <button key={s.key} onClick={() => setMatchState(s.key)} style={{
             padding: "5px 12px", borderRadius: 99, fontSize: 11,
@@ -1065,6 +1074,59 @@ const MatchScreen = ({ onNav }) => {
       </div>
       </>)}
 
+      {matchState === "bridge" && (<>
+      <div style={{
+        background: C.surface, border: `1.5px solid ${C.amber}`,
+        borderRadius: 14, padding: "22px 20px", marginBottom: 18,
+      }}>
+        <div style={{
+          fontFamily: font.mono, fontSize: 10, color: C.amber,
+          textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14,
+        }}>Amber's assessment</div>
+        <p style={{ fontFamily: font.sans, fontSize: 13.5, color: C.text, lineHeight: 1.75, margin: "0 0 14px" }}>
+          I don't have a direct match for you right now. But I have identified a credible path — through a member whose background suggests they may know the right person.
+        </p>
+        <p style={{ fontFamily: font.sans, fontSize: 13, color: C.textSecondary, lineHeight: 1.7, margin: 0 }}>
+          I am going to ask them discreetly whether they can help. This is Amber's reputation and recommendation layer — activating trusted member networks when direct matching reaches its limit.
+        </p>
+      </div>
+
+      <div style={{
+        background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
+        borderRadius: 12, padding: "16px 20px", marginBottom: 18,
+      }}>
+        <SectionLabel>What this means for you</SectionLabel>
+        {[
+          "A trusted member will be asked privately whether they know someone relevant",
+          "If they do, they can introduce you themselves — or ask Amber to connect the three of you on WhatsApp",
+          "If they decline or don't reply, nothing happens and you are not informed of the approach",
+          "If successful, Amber will return to you with a warm, contextualised introduction",
+        ].map((t, i) => (
+          <div key={i} style={{
+            display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 0",
+            borderBottom: i < 3 ? `1px solid ${C.borderLight}` : "none",
+          }}>
+            <span style={{ color: C.amber, fontSize: 7, marginTop: 6, flexShrink: 0 }}>◆</span>
+            <span style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.5 }}>{t}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{
+        background: C.cream, borderRadius: 10, padding: 14,
+        marginBottom: 20, borderLeft: `3px solid ${C.amber}`,
+      }}>
+        <p style={{ fontFamily: font.sans, fontSize: 12, color: C.amberDark, lineHeight: 1.6, margin: 0 }}>
+          Amber will return within a few days. This pathway takes a little more time than a direct introduction — because it is being handled with the same care and discretion.
+        </p>
+      </div>
+
+      <Btn variant="secondary" onClick={() => onNav(S.BRIDGE)}>See how the bridge pathway works →</Btn>
+      <div style={{ marginTop: 10 }}>
+        <Btn variant="ghost" onClick={() => setMatchState("strong")}>View direct match (prototype demo)</Btn>
+      </div>
+      </>)}
+
       {matchState === "hold" && (<>
       <div style={{
         background: C.surface, border: `1px solid ${C.border}`,
@@ -1106,10 +1168,187 @@ const MatchScreen = ({ onNav }) => {
 };
 
 const matchNotes = [
-  "This screen has three states: a strong match, a partial overlap, and a hold. The alternative states demonstrate that Amber exercises judgement rather than claiming omniscience — not introducing someone yet is itself a high-quality outcome. This bounded uncertainty is a form of critical maturity in the design.",
+  "This screen has four states: a direct introduction, a considered suggestion with candid caveats, a bridge pathway through a trusted member, and a hold. All four demonstrate that Amber exercises judgement rather than claiming omniscience. Not introducing someone yet — or routing through a trusted bridge — are both quality outcomes, not failures.",
   "The suggested member is anonymised before consent: role level, broad geography, and relevant experience — but no name or identifying detail. In a narrow elite network, even city and specific role could identify someone. The name is disclosed only after mutual opt-in, making the privacy architecture coherent with Amber's consent logic.",
-  "The five structured dimensions — shared context, productive difference, decision relevance, conversation fit, timing — demonstrate relational judgement, not keyword matching. The separation of shared context from productive difference draws on the brokerage and social capital literature mapped in Framing and Cartography Assessment 1, particularly Burt's structural holes and Granovetter's weak ties: value comes from bridging, not clustering.",
+  "The five structured dimensions — shared context, productive difference, decision relevance, conversation fit, timing — demonstrate relational judgement, not keyword matching. The separation of shared context from productive difference draws on Burt's structural holes and Granovetter's weak ties: value comes from bridging, not clustering.",
+  "The bridge pathway state introduces Amber's reputation and recommendation layer — the mechanism by which Amber reaches beyond its direct membership through trusted member networks. This is the moment where Amber moves from a closed matching engine to a relationship-routing system. Screen H shows this flow in detail.",
   "This screen is the beginning of Amber's governance architecture. Explanation is not a UX convenience — it is a condition of trustworthy AI. Match Rationale is where Amber's intelligence becomes legible; Governance is where that legibility becomes accountable.",
+];
+
+// ═══════════════════════════════════════════
+// SCREEN H — Bridge Pathway (NEW)
+// ═══════════════════════════════════════════
+
+const BridgeScreen = ({ onNav }) => {
+  const [bridgeTab, setBridgeTab] = useState("callout"); // callout | handoff | followup
+  return (
+    <Phone>
+      <div style={{ padding: "20px 32px 32px" }}>
+        <button onClick={() => onNav(S.MATCH)} style={{
+          background: "none", border: "none", cursor: "pointer", padding: 0,
+          marginBottom: 16, color: C.textMuted, fontFamily: font.sans, fontSize: 13,
+          display: "flex", alignItems: "center", gap: 6,
+        }}>
+          <span style={{ fontSize: 16 }}>‹</span> Back
+        </button>
+
+        <ScreenChip type="system" />
+        <h2 style={{
+          fontFamily: font.serif, fontSize: 24, fontWeight: 500,
+          color: C.text, margin: "0 0 6px", lineHeight: 1.25,
+        }}>Bridge Pathway</h2>
+        <p style={{
+          fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary,
+          margin: "0 0 18px", lineHeight: 1.6,
+        }}>
+          Amber's reputation and recommendation layer — how trusted member networks are activated when direct matching reaches its limit.
+        </p>
+
+        {/* Tab toggle */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+          {[
+            { key: "callout", label: "Amber's approach" },
+            { key: "handoff", label: "Handoff" },
+            { key: "followup", label: "Follow-up" },
+          ].map(t => (
+            <button key={t.key} onClick={() => setBridgeTab(t.key)} style={{
+              padding: "5px 11px", borderRadius: 99, fontSize: 10,
+              fontFamily: font.mono, cursor: "pointer",
+              border: bridgeTab === t.key ? `1.5px solid ${C.text}` : `1px solid ${C.border}`,
+              background: bridgeTab === t.key ? C.text : C.surface,
+              color: bridgeTab === t.key ? C.bg : C.textMuted,
+            }}>{t.label}</button>
+          ))}
+        </div>
+
+        {bridgeTab === "callout" && (<>
+        <SectionLabel>What Member B receives from Amber</SectionLabel>
+        <div style={{
+          background: C.surface, border: `1.5px solid ${C.amber}`,
+          borderRadius: 14, padding: "20px", marginBottom: 18,
+        }}>
+          <div style={{
+            fontFamily: font.mono, fontSize: 9, color: C.amber,
+            textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12,
+          }}>From Amber · Private</div>
+          <p style={{ fontFamily: font.serif, fontSize: 14.5, color: C.text, lineHeight: 1.75, fontStyle: "italic", margin: "0 0 12px" }}>
+            I'm trying to help a member connect with someone who has experience of intergenerational family governance — a next-generation principal navigating when and how to reorient family capital toward impact. Given your background, I wondered whether you might know someone who would be open to a conversation?
+          </p>
+          <p style={{ fontFamily: font.sans, fontSize: 11.5, color: C.textMuted, lineHeight: 1.6, margin: 0 }}>
+            You are under no obligation to respond. If this isn't something you can help with right now, there is nothing to do.
+          </p>
+        </div>
+
+        <SectionLabel>Member B's response options</SectionLabel>
+        {[
+          { label: "I know someone — happy to help", active: true },
+          { label: "I might know someone — let me check", active: false },
+          { label: "I don't know anyone suitable", active: false },
+        ].map((opt, i) => (
+          <div key={i} style={{
+            padding: "12px 16px", borderRadius: 10, marginBottom: 8, cursor: "pointer",
+            background: opt.active ? C.amberLight : C.surface,
+            border: `1px solid ${opt.active ? C.amberBorder : C.border}`,
+          }}>
+            <span style={{
+              fontFamily: font.sans, fontSize: 13,
+              color: opt.active ? C.amberDark : C.textSecondary,
+              fontWeight: opt.active ? 500 : 400,
+            }}>{opt.label}</span>
+          </div>
+        ))}
+        <div style={{
+          background: C.surfaceWarm, borderRadius: 8, padding: 12, marginTop: 4,
+        }}>
+          <p style={{ fontFamily: font.sans, fontSize: 11.5, color: C.textMuted, lineHeight: 1.6, margin: 0 }}>
+            Non-reply is treated identically to a quiet decline. No follow-up. No record of the approach shared with anyone.
+          </p>
+        </div>
+        </>)}
+
+        {bridgeTab === "handoff" && (<>
+        <SectionLabel>When B confirms they can help</SectionLabel>
+        <p style={{ fontFamily: font.sans, fontSize: 13, color: C.textSecondary, lineHeight: 1.65, margin: "0 0 16px" }}>
+          Amber shares brief context about the requesting member, confirms B still wishes to proceed, then asks:
+        </p>
+        <div style={{
+          background: C.surface, border: `1.5px solid ${C.amber}`,
+          borderRadius: 14, padding: "20px", marginBottom: 20,
+        }}>
+          <div style={{
+            fontFamily: font.mono, fontSize: 9, color: C.amber,
+            textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12,
+          }}>From Amber · Private</div>
+          <p style={{ fontFamily: font.serif, fontSize: 14.5, color: C.text, lineHeight: 1.75, fontStyle: "italic", margin: 0 }}>
+            Would you like to make this introduction yourself — in your own voice, through your own channel? Or shall I connect the three of you on WhatsApp, so they can take it from there?
+          </p>
+        </div>
+
+        {[
+          {
+            label: "Option A — B makes the introduction",
+            desc: "B uses their own relationship with X. Amber provides a brief context note to draw on if useful. The introduction carries B's full personal weight and voice.",
+          },
+          {
+            label: "Option B — Amber connects via WhatsApp",
+            desc: "Amber creates a WhatsApp group with the requesting member, B, and X. Amber sends a single, considered introduction message and steps back. B is released from further obligation while retaining the relational credit.",
+          },
+        ].map((opt, i) => (
+          <div key={i} style={{
+            background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
+            borderRadius: 12, padding: "16px 18px", marginBottom: 10,
+          }}>
+            <div style={{
+              fontFamily: font.mono, fontSize: 9.5, color: C.amber,
+              textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 7,
+            }}>{opt.label}</div>
+            <p style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.55, margin: 0 }}>{opt.desc}</p>
+          </div>
+        ))}
+        </>)}
+
+        {bridgeTab === "followup" && (<>
+        <SectionLabel>One week later — if no introduction has been made</SectionLabel>
+        <div style={{
+          background: C.surface, border: `1.5px solid ${C.amber}`,
+          borderRadius: 14, padding: "20px", marginBottom: 18,
+        }}>
+          <div style={{
+            fontFamily: font.mono, fontSize: 9, color: C.amber,
+            textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12,
+          }}>From Amber · Private</div>
+          <p style={{ fontFamily: font.serif, fontSize: 14.5, color: C.text, lineHeight: 1.75, fontStyle: "italic", margin: 0 }}>
+            You kindly offered to connect them. I think they'd enjoy knowing each other. Would you still like to make that happen — or has the moment passed?
+          </p>
+        </div>
+        <p style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.65, margin: "0 0 20px" }}>
+          Warm, not transactional. It reminds B of their own stated intention rather than chasing a task. "Or has the moment passed?" gives B a graceful exit — acknowledging that introductions are time-sensitive social acts.
+        </p>
+
+        <div style={{ height: 1, background: C.borderLight, margin: "0 0 18px" }} />
+        <SectionLabel>Post-introduction outcome check-in (all pathways)</SectionLabel>
+        <div style={{
+          background: C.cream, border: `1px solid ${C.amberBorder}`,
+          borderRadius: 12, padding: "16px 18px", marginBottom: 14,
+        }}>
+          <p style={{ fontFamily: font.serif, fontSize: 15, color: C.amberDark, fontStyle: "italic", lineHeight: 1.7, margin: 0 }}>
+            "It's been a week. Was the conversation useful?"
+          </p>
+        </div>
+        <p style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.65, margin: 0 }}>
+          The same follow-up applies whether Amber made the introduction directly, a partial match was accepted, or a bridge member facilitated it. Consistency across all four pathways is a governance principle, not a design convenience. Outcome data improves future matching and bridge identification — without individual attribution.
+        </p>
+        </>)}
+      </div>
+    </Phone>
+  );
+};
+
+const bridgeNotes = [
+  "The bridge pathway is Amber's reputation and recommendation layer in operation. When direct matching reaches its limit, Amber activates trusted member networks rather than returning a dead end. This encodes a behaviour that already exists in elite networks — 'I think you should meet X, let me see if I can arrange that' — and gives it governed infrastructure for the first time.",
+  "Amber approaches Member B individually and privately, never via a broadcast. The framing is an invitation ('I wondered whether you might know someone'), not a task. Non-reply closes the loop identically to a quiet decline — no follow-up, no record of the approach shared with the requesting member. B's social capital is protected at every stage.",
+  "The handoff question gives B genuine agency: make the introduction in their own voice and channel, or let Amber facilitate via a WhatsApp group of three. Both options preserve B's relational credit. Option B absorbs the administrative friction — composing a message, managing the thread — while B retains the social weight of having facilitated the connection.",
+  "Reciprocity is a structural principle of the bridge layer: members must be willing to act as bridge nodes to receive bridge introductions. Members who contribute are acknowledged directly and privately by Amber — not through a badge or metric, but through a considered note that their contribution produced something useful.",
 ];
 
 // ═══════════════════════════════════════════
@@ -1749,6 +1988,7 @@ export default function AmberPrototype() {
     [S.ELICIT_CHAT]: elicitChatNotes,
     [S.UNDERSTOOD]: understoodNotes,
     [S.MATCH]: matchNotes,
+    [S.BRIDGE]: bridgeNotes,
     [S.CONSENT]: consentNotes,
     [S.HANDOFF]: handoffNotes,
     [S.OUTCOME]: outcomeNotes,
@@ -1765,6 +2005,7 @@ export default function AmberPrototype() {
     [S.ELICIT_CHAT]: <ElicitChatScreen onNav={setScreen} />,
     [S.UNDERSTOOD]: <UnderstoodScreen onNav={setScreen} />,
     [S.MATCH]: <MatchScreen onNav={setScreen} />,
+    [S.BRIDGE]: <BridgeScreen onNav={setScreen} />,
     [S.CONSENT]: <ConsentScreen onNav={setScreen} />,
     [S.HANDOFF]: <HandoffScreen onNav={setScreen} />,
     [S.OUTCOME]: <OutcomeScreen onNav={setScreen} />,
@@ -1774,6 +2015,7 @@ export default function AmberPrototype() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#F0EDE7", fontFamily: font.sans }}>
+      <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Libre+Franklin:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
       {/* Header */}
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "36px 32px 0" }}>
@@ -1799,7 +2041,7 @@ export default function AmberPrototype() {
           fontFamily: font.mono, fontSize: 10.5, color: C.textMuted,
           margin: "0 0 24px",
         }}>
-          Re:Form Assessment 2 · Product Prototype · LIS MASc 2024/26
+          Re:Form Assessment 2 · Product Prototype · Student ID 24000132957 · LIS MASc 2024/26
         </p>
       </div>
 
@@ -1847,7 +2089,7 @@ export default function AmberPrototype() {
           fontFamily: font.mono, fontSize: 10.5, color: C.textMuted,
           lineHeight: 1.7, maxWidth: 520, margin: "0 auto",
         }}>
-          13 screens · Interactive prototype with design annotations · Navigate using the tabs above or the in-screen controls
+          14 screens · Interactive prototype with design annotations · Navigate using the tabs above or the in-screen controls
         </p>
       </div>
     </div>
