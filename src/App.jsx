@@ -3,6 +3,7 @@ import { useState } from "react";
 /* ═══════════════════════════════════════════
    AMBER — Research-through-design prototype
    Re:Form Assessment 2 · LIS MASc 2024/26
+   Mobile-first refactor · WCAG 2.2 AA target
    ═══════════════════════════════════════════ */
 
 // ── Design Tokens ──
@@ -14,7 +15,8 @@ const C = {
   borderLight: "#F0ECE5",
   text: "#2A2520",
   textSecondary: "#6B6560",
-  textMuted: "#A9A29A",
+  textMuted: "#6B6560", // bumped from #A9A29A for AA contrast on warm bg
+  textFaint: "#A9A29A", // legacy faint colour — use only on white / large text
   amber: "#B8923E",
   amberLight: "#F3ECDD",
   amberBorder: "#DDD2BA",
@@ -28,7 +30,7 @@ const font = {
   mono: "'IBM Plex Mono', monospace",
 };
 
-// ── Screen IDs ──
+// ── Screen IDs ── (14 screens: Overview + A–M)
 const S = {
   OVERVIEW: 0, INVITE: 1, ABOUT: 12, APPLY: 2, ELICIT_INTRO: 3, ELICIT_CHAT: 4,
   UNDERSTOOD: 5, MATCH: 6, BRIDGE: 13, CONSENT: 7, HANDOFF: 8,
@@ -52,51 +54,351 @@ const SCREEN_META = [
   { id: S.TRENDS, label: "Community", short: "M" },
 ];
 
-// ── Shared Components ──
+// ── Global stylesheet (focus rings, reduced motion, responsive breakpoints) ──
+const GLOBAL_CSS = `
+  *:focus-visible {
+    outline: 3px solid #B8923E !important;
+    outline-offset: 2px !important;
+    transition: none !important;
+  }
 
-const Phone = ({ children }) => (
-  <div style={{
-    width: 390, minHeight: 760, maxHeight: 760,
-    borderRadius: 44, border: `2px solid ${C.border}`,
-    background: C.bg, overflow: "hidden", position: "relative",
-    boxShadow: "0 20px 60px rgba(42,37,32,0.08), 0 2px 8px rgba(42,37,32,0.04)",
-    display: "flex", flexDirection: "column",
-  }}>
-    <div style={{
-      height: 48, display: "flex", alignItems: "center",
-      justifyContent: "space-between", padding: "0 28px",
-      fontSize: 13, fontWeight: 600, color: C.text, fontFamily: font.sans,
-    }}>
-      <span>9:41</span>
-      <div style={{ width: 126, height: 32, borderRadius: 16, background: C.text }} />
-      <span style={{ fontSize: 11 }}>●●●</span>
-    </div>
-    <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>{children}</div>
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Skip link — visible only when focused */
+  .a-skip {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    z-index: 9999;
+    text-decoration: none;
+  }
+  .a-skip:focus {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    width: auto;
+    height: auto;
+    padding: 12px 18px;
+    background: #2A2520;
+    color: #FDFAF5;
+    font-family: 'Libre Franklin', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  /* Visually-hidden — for screen-reader-only content */
+  .a-sr {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0,0,0,0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  /* Back button — 44×44 touch target */
+  .a-back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 8px 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'Libre Franklin', sans-serif;
+    font-size: 13px;
+    color: #6B6560;
+    touch-action: manipulation;
+    margin-bottom: 8px;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.15s;
+  }
+  .a-back:hover { color: #2A2520; }
+
+  /* Phone shell — desktop default */
+  .a-shell {
+    width: 390px;
+    min-height: 760px;
+    max-height: 760px;
+    border-radius: 44px;
+    border: 2px solid #E8E3DB;
+    background: #FDFAF5;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(42,37,32,0.08), 0 2px 8px rgba(42,37,32,0.04);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .a-shell-bar {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #2A2520;
+    font-family: 'Libre Franklin', sans-serif;
+    flex-shrink: 0;
+  }
+  .a-shell-body { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+  /* Layout: phone + notes */
+  .a-layout {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 32px 48px;
+    display: flex;
+    gap: 48px;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  /* Desktop header / tabs */
+  .a-hdr { max-width: 900px; margin: 0 auto; padding: 36px 32px 0; }
+  .a-hdr-mobile { display: none; }
+  .a-tabs {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 32px 24px;
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .a-tab {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-family: 'Libre Franklin', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    touch-action: manipulation;
+    min-height: 36px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Mobile sticky nav bar — hidden on desktop */
+  .a-mobile-nav { display: none; }
+
+  /* Notes — desktop sidebar */
+  .a-notes {
+    width: 340px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .a-notes-hdr {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: #6B6560;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #F0ECE5;
+  }
+  .a-notes-toggle { display: none; }
+  .a-notes-body { display: flex; flex-direction: column; gap: 16px; }
+
+  /* State-toggle pills (e.g. Match states, Bridge tabs) — bigger tap target on mobile */
+  .a-pill {
+    padding: 6px 12px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    min-height: 32px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    line-height: 1.1;
+  }
+
+  /* ── Tablet (681–880px) ──────────────────── */
+  @media (min-width: 681px) and (max-width: 880px) {
+    .a-shell { width: 340px; }
+    .a-notes { width: 240px; }
+    .a-layout { gap: 32px; padding: 0 20px 48px; }
+    .a-tabs { padding: 0 20px 24px; }
+    .a-hdr { padding: 28px 20px 0; }
+  }
+
+  /* ── Mobile (≤680px) ─────────────────────── */
+  @media (max-width: 680px) {
+    .a-hdr { display: none; }
+    .a-hdr-mobile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px 8px;
+    }
+
+    .a-tabs { display: none; }
+    .a-mobile-nav {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #FDFAF5;
+      border-bottom: 1px solid #E8E3DB;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 1px 8px rgba(42,37,32,0.06);
+    }
+    .a-nav-btn {
+      min-width: 44px;
+      min-height: 44px;
+      width: 48px;
+      border-radius: 10px;
+      border: 1.5px solid #E8E3DB;
+      background: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+      font-family: 'Libre Franklin', sans-serif;
+      color: #2A2520;
+      flex-shrink: 0;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: all 0.15s;
+      padding: 0;
+    }
+    .a-nav-btn:disabled {
+      background: #F0ECE5;
+      color: #A9A29A;
+      border-color: #E8E3DB;
+      cursor: default;
+    }
+    .a-nav-btn-next {
+      background: #2A2520;
+      color: #FDFAF5;
+      border-color: #2A2520;
+    }
+    .a-nav-btn-next:disabled {
+      background: #F0ECE5;
+      color: #A9A29A;
+      border-color: #E8E3DB;
+    }
+    .a-nav-progress {
+      flex: 1;
+      min-width: 0;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 4px 4px;
+    }
+
+    .a-layout {
+      flex-direction: column;
+      padding: 12px 12px 24px;
+      gap: 0;
+    }
+
+    /* Drop the phone bezel on mobile — content card is the experience */
+    .a-shell {
+      width: 100%;
+      min-height: auto;
+      max-height: none;
+      border-radius: 16px;
+      border: 1px solid #E8E3DB;
+      box-shadow: 0 4px 20px rgba(42,37,32,0.05);
+      overflow: visible;
+    }
+    .a-shell-body { overflow: visible; }
+    .a-shell-bar { display: none; }
+
+    /* Mobile padding override — original screens use 32px sides;
+       tighten to 18px so 320px viewports breathe */
+    .a-shell-body > div { padding-left: 18px !important; padding-right: 18px !important; }
+
+    /* Notes — accordion under content */
+    .a-notes {
+      width: 100%;
+      margin-top: 14px;
+      background: #FFFFFF;
+      border: 1px solid #E8E3DB;
+      border-radius: 14px;
+      overflow: hidden;
+      gap: 0;
+    }
+    .a-notes-hdr { display: none; }
+    .a-notes-toggle {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 14px 18px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: #2A2520;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      text-align: left;
+      min-height: 48px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .a-notes-body { padding: 4px 18px 18px; gap: 14px; }
+    .a-notes-body.a-hidden { display: none; }
+
+    /* Bigger pill tap targets on mobile */
+    .a-pill { min-height: 44px; padding: 10px 14px; font-size: 12px; }
+  }
+`;
+
+// ── Components ──
+
+const GlobalStyles = () => (
+  <style dangerouslySetInnerHTML={{ __html: GLOBAL_CSS }} />
+);
+
+// ScreenShell — phone bezel on desktop, plain card on mobile (CSS-driven).
+const ScreenShell = ({ children, noStatusBar = false }) => (
+  <div className="a-shell">
+    {!noStatusBar && (
+      <div className="a-shell-bar" aria-hidden="true">
+        <span>9:41</span>
+        <div style={{ width: 126, height: 32, borderRadius: 16, background: C.text }} />
+        <span style={{ fontSize: 11 }}>●●●</span>
+      </div>
+    )}
+    <div className="a-shell-body">{children}</div>
   </div>
 );
 
-const Notes = ({ items }) => (
-  <div style={{ width: 340, display: "flex", flexDirection: "column", gap: 16 }}>
-    <div style={{
-      fontFamily: font.mono, fontSize: 10, color: C.textMuted,
-      textTransform: "uppercase", letterSpacing: "0.1em", paddingBottom: 8,
-      borderBottom: `1px solid ${C.borderLight}`,
-    }}>
-      Design decisions
-    </div>
-    {items.map((item, i) => (
-      <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <span style={{
-          fontFamily: font.mono, fontSize: 10, color: C.amber,
-          fontWeight: 600, flexShrink: 0, marginTop: 2,
-        }}>{String(i + 1).padStart(2, "0")}</span>
-        <p style={{
-          fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary,
-          lineHeight: 1.65, margin: 0,
-        }}>{item}</p>
-      </div>
-    ))}
-  </div>
+const BackBtn = ({ onClick, label = "Back" }) => (
+  <button className="a-back" onClick={onClick} aria-label={label}>
+    <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>‹</span>
+    <span>{label}</span>
+  </button>
 );
 
 const SectionLabel = ({ children }) => (
@@ -106,28 +408,29 @@ const SectionLabel = ({ children }) => (
   }}>{children}</div>
 );
 
-const Btn = ({ children, variant = "primary", onClick, style = {} }) => {
+const Btn = ({ children, variant = "primary", onClick, style = {}, ariaLabel }) => {
   const base = {
     padding: "15px 24px", borderRadius: 10, fontSize: 13.5,
     fontWeight: 500, fontFamily: font.sans, cursor: "pointer",
     width: "100%", letterSpacing: "0.02em", transition: "all 0.2s",
-    border: "none",
+    border: "none", minHeight: 48, touchAction: "manipulation",
+    WebkitTapHighlightColor: "transparent",
   };
   const variants = {
     primary: { background: C.text, color: C.bg },
     secondary: { background: "transparent", color: C.text, border: `1.5px solid ${C.border}` },
     amber: { background: C.amber, color: "#fff" },
-    ghost: { background: "transparent", color: C.textMuted, border: "none" },
+    ghost: { background: "transparent", color: C.textSecondary, border: "none" },
   };
-  return <button onClick={onClick} style={{ ...base, ...variants[variant], ...style }}>{children}</button>;
+  return (
+    <button onClick={onClick} aria-label={ariaLabel} style={{ ...base, ...variants[variant], ...style }}>
+      {children}
+    </button>
+  );
 };
 
-const Divider = () => (
-  <div style={{ height: 1, background: C.borderLight, margin: "0" }} />
-);
-
 const AmberMark = ({ size = 36 }) => (
-  <svg width={size} height={size} viewBox="0 0 36 36">
+  <svg width={size} height={size} viewBox="0 0 36 36" aria-hidden="true" focusable="false">
     <circle cx="18" cy="18" r="16.5" fill="none" stroke={C.amber} strokeWidth="1.5" />
     <circle cx="18" cy="18" r="6" fill={C.amber} opacity="0.15" />
     <circle cx="18" cy="18" r="2.5" fill={C.amber} />
@@ -142,7 +445,7 @@ const ScreenChip = ({ type }) => {
       fontFamily: font.mono, fontSize: 8.5, letterSpacing: "0.08em",
       textTransform: "uppercase",
       background: isSystem ? "#EDE9E3" : C.amberLight,
-      color: isSystem ? C.textMuted : C.amberDark,
+      color: isSystem ? C.textSecondary : C.amberDark,
       border: `1px solid ${isSystem ? C.border : C.amberBorder}`,
       marginBottom: 16,
     }}>
@@ -156,14 +459,8 @@ const ScreenChip = ({ type }) => {
 // ═══════════════════════════════════════════
 
 const OverviewScreen = ({ onNav }) => (
-  <div style={{
-    width: 390, minHeight: 760, maxHeight: 760,
-    borderRadius: 44, border: `2px solid ${C.border}`,
-    background: C.bg, overflow: "hidden", position: "relative",
-    boxShadow: "0 20px 60px rgba(42,37,32,0.08), 0 2px 8px rgba(42,37,32,0.04)",
-    display: "flex", flexDirection: "column",
-  }}>
-    <div style={{ flex: 1, overflowY: "auto", padding: "48px 32px 32px" }}>
+  <ScreenShell noStatusBar>
+    <div style={{ padding: "48px 32px 32px" }}>
       <ScreenChip type="system" />
       <div style={{ textAlign: "center", marginBottom: 32 }}>
         <AmberMark size={44} />
@@ -189,10 +486,7 @@ const OverviewScreen = ({ onNav }) => (
           ["Explanation before introduction", "Suggested connections come with qualitative rationale, not opaque matching."],
           ["Consent before connection", "No member is surfaced without relevance, context, and double opt-in."],
         ].map(([title, desc], i) => (
-          <div key={i} style={{
-            padding: "12px 0",
-            borderTop: `1px solid ${C.borderLight}`,
-          }}>
+          <div key={i} style={{ padding: "12px 0", borderTop: `1px solid ${C.borderLight}` }}>
             <div style={{ fontFamily: font.sans, fontWeight: 600, fontSize: 13, color: C.text, marginBottom: 3 }}>{title}</div>
             <div style={{ fontFamily: font.sans, fontSize: 12, color: C.textSecondary, lineHeight: 1.55 }}>{desc}</div>
           </div>
@@ -213,7 +507,7 @@ const OverviewScreen = ({ onNav }) => (
 
       <Btn onClick={() => onNav(S.INVITE)}>Enter prototype →</Btn>
     </div>
-  </div>
+  </ScreenShell>
 );
 
 const overviewNotes = [
@@ -228,7 +522,7 @@ const overviewNotes = [
 // ═══════════════════════════════════════════
 
 const InviteScreen = ({ onNav }) => (
-  <Phone>
+  <ScreenShell>
     <div style={{ padding: "48px 32px 32px", textAlign: "center" }}>
       <ScreenChip type="member" />
       <AmberMark size={40} />
@@ -255,10 +549,11 @@ const InviteScreen = ({ onNav }) => (
             width: 42, height: 42, borderRadius: 99, background: C.amberLight,
             display: "flex", alignItems: "center", justifyContent: "center",
             fontFamily: font.serif, fontSize: 17, fontWeight: 600, color: C.amberDark,
-          }}>R</div>
+            flexShrink: 0,
+          }} aria-hidden="true">R</div>
           <div>
             <div style={{ fontFamily: font.sans, fontWeight: 600, fontSize: 14, color: C.text }}>Rebecca Thornton</div>
-            <div style={{ fontFamily: font.sans, fontSize: 12, color: C.textMuted }}>Family Office Principal</div>
+            <div style={{ fontFamily: font.sans, fontSize: 12, color: C.textSecondary }}>Family Office Principal</div>
           </div>
         </div>
         <p style={{
@@ -282,7 +577,7 @@ const InviteScreen = ({ onNav }) => (
         <Btn variant="ghost">Not right now</Btn>
       </div>
     </div>
-  </Phone>
+  </ScreenShell>
 );
 
 const inviteNotes = [
@@ -296,11 +591,9 @@ const inviteNotes = [
 // ═══════════════════════════════════════════
 
 const AboutScreen = ({ onNav }) => (
-  <Phone>
+  <ScreenShell>
     <div style={{ padding: "20px 32px 32px" }}>
-      <button onClick={() => onNav(S.INVITE)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 24, color: C.textMuted, fontFamily: font.sans, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 16 }}>‹</span> Back
-      </button>
+      <BackBtn onClick={() => onNav(S.INVITE)} label="Back to invitation" />
 
       <ScreenChip type="member" />
       <h2 style={{
@@ -320,45 +613,34 @@ const AboutScreen = ({ onNav }) => (
         Through its reputation and recommendation layer, Amber can reach beyond its immediate membership — activating trusted member networks when a direct introduction is not available.
       </p>
 
-      {/* Who Amber is for */}
       <div style={{
         background: C.surface, border: `1px solid ${C.border}`,
         borderRadius: 14, padding: "18px 20px", marginBottom: 14,
       }}>
         <SectionLabel>Who Amber is for</SectionLabel>
-        <p style={{
-          fontFamily: font.sans, fontSize: 13, color: C.text,
-          lineHeight: 1.65, margin: 0,
-        }}>
+        <p style={{ fontFamily: font.sans, fontSize: 13, color: C.text, lineHeight: 1.65, margin: 0 }}>
           Principals, next-generation wealth holders, family office decision-makers, and capital holders acting in their own right.
         </p>
       </div>
 
-      {/* Who Amber is not for */}
       <div style={{
         background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
         borderRadius: 12, padding: "18px 20px", marginBottom: 18,
       }}>
         <SectionLabel>Who Amber is not for</SectionLabel>
-        <p style={{
-          fontFamily: font.sans, fontSize: 13, color: C.textSecondary,
-          lineHeight: 1.65, margin: 0,
-        }}>
+        <p style={{ fontFamily: font.sans, fontSize: 13, color: C.textSecondary, lineHeight: 1.65, margin: 0 }}>
           Advisers, consultants, fundraisers, recruiters, service providers, or others seeking access to members without holding capital decision-making responsibility themselves.
         </p>
       </div>
 
-      {/* What Amber is not */}
       <div style={{ marginBottom: 18 }}>
         {[
           "No feed. No directory. No noise.",
           "No browsing. Introductions arrive when relevant.",
           "Context before contact. Consent before connection.",
         ].map((t, i) => (
-          <div key={i} style={{
-            display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8,
-          }}>
-            <span style={{ color: C.amber, fontSize: 7, marginTop: 6, flexShrink: 0 }}>◆</span>
+          <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8 }}>
+            <span style={{ color: C.amber, fontSize: 7, marginTop: 6, flexShrink: 0 }} aria-hidden="true">◆</span>
             <span style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.5 }}>{t}</span>
           </div>
         ))}
@@ -381,7 +663,7 @@ const AboutScreen = ({ onNav }) => (
         <Btn variant="ghost" onClick={() => onNav(S.INVITE)}>Back to invitation</Btn>
       </div>
     </div>
-  </Phone>
+  </ScreenShell>
 );
 
 const aboutNotes = [
@@ -397,11 +679,9 @@ const aboutNotes = [
 // ═══════════════════════════════════════════
 
 const ApplyScreen = ({ onNav }) => (
-  <Phone>
+  <ScreenShell>
     <div style={{ padding: "20px 32px 32px" }}>
-      <button onClick={() => onNav(S.ABOUT)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 24, color: C.textMuted, fontFamily: font.sans, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 16 }}>‹</span> Back
-      </button>
+      <BackBtn onClick={() => onNav(S.ABOUT)} label="Back to About Amber" />
 
       <h2 style={{
         fontFamily: font.serif, fontSize: 26, fontWeight: 500,
@@ -415,7 +695,6 @@ const ApplyScreen = ({ onNav }) => (
         Amber learns about you through conversation, not forms. But first, a few things that help confirm your fit.
       </p>
 
-      {/* Role declaration */}
       <div style={{
         background: C.surface, border: `1px solid ${C.border}`,
         borderRadius: 14, padding: "18px 20px", marginBottom: 16,
@@ -436,7 +715,8 @@ const ApplyScreen = ({ onNav }) => (
               width: 18, height: 18, borderRadius: 99,
               border: `1.5px solid ${i === 1 ? C.amber : C.border}`,
               display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
+              flexShrink: 0,
+            }} aria-hidden="true">
               {i === 1 && <div style={{ width: 8, height: 8, borderRadius: 99, background: C.amber }} />}
             </div>
             <span style={{
@@ -447,20 +727,15 @@ const ApplyScreen = ({ onNav }) => (
         ))}
       </div>
 
-      {/* Applicant declaration */}
       <div style={{
         background: C.amberLight, border: `1px solid ${C.amberBorder}`,
         borderRadius: 10, padding: 14, marginBottom: 16,
       }}>
-        <p style={{
-          fontFamily: font.sans, fontSize: 12.5, color: C.amberDark,
-          lineHeight: 1.6, margin: 0,
-        }}>
+        <p style={{ fontFamily: font.sans, fontSize: 12.5, color: C.amberDark, lineHeight: 1.6, margin: 0 }}>
           I am applying in my own capacity as a capital holder, principal, or next-generation family member — not as an external adviser or intermediary.
         </p>
       </div>
 
-      {/* Conversational verification */}
       <div style={{
         background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
         borderRadius: 12, padding: "16px 20px", marginBottom: 16,
@@ -475,7 +750,7 @@ const ApplyScreen = ({ onNav }) => (
         <div style={{ display: "flex", gap: 8 }}>
           {["Type", "Voice"].map((mode) => (
             <div key={mode} style={{
-              flex: 1, padding: "8px 0", borderRadius: 8, textAlign: "center",
+              flex: 1, padding: "10px 0", borderRadius: 8, textAlign: "center",
               background: mode === "Type" ? C.text : C.surface,
               color: mode === "Type" ? C.bg : C.textSecondary,
               fontFamily: font.sans, fontSize: 11.5, fontWeight: 500,
@@ -485,7 +760,6 @@ const ApplyScreen = ({ onNav }) => (
         </div>
       </div>
 
-      {/* Member Code */}
       <div style={{
         background: C.surface, border: `1px solid ${C.border}`,
         borderRadius: 14, padding: "18px 20px", marginBottom: 16,
@@ -507,7 +781,7 @@ const ApplyScreen = ({ onNav }) => (
             display: "flex", gap: 10, alignItems: "flex-start", padding: "7px 0",
             borderBottom: i < 3 ? `1px solid ${C.borderLight}` : "none",
           }}>
-            <span style={{ color: C.amber, fontSize: 7, marginTop: 6, flexShrink: 0 }}>◆</span>
+            <span style={{ color: C.amber, fontSize: 7, marginTop: 6, flexShrink: 0 }} aria-hidden="true">◆</span>
             <span style={{ fontFamily: font.sans, fontSize: 12.5, color: C.text, lineHeight: 1.5 }}>{principle}</span>
           </div>
         ))}
@@ -520,7 +794,7 @@ const ApplyScreen = ({ onNav }) => (
             width: 18, height: 18, borderRadius: 4,
             border: `1.5px solid ${C.amber}`, flexShrink: 0,
             display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
+          }} aria-hidden="true">
             <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2.5 5.2L4.2 6.8L7.5 3.2" stroke={C.amber} strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
           </div>
           <span style={{ fontFamily: font.sans, fontSize: 12, color: C.text }}>
@@ -529,14 +803,12 @@ const ApplyScreen = ({ onNav }) => (
         </div>
       </div>
 
-      {/* Human review */}
       <div style={{
         background: C.cream, borderRadius: 10, padding: 14,
         marginBottom: 24, borderLeft: `3px solid ${C.amber}`,
       }}>
         <p style={{
-          fontFamily: font.sans, fontSize: 12, color: C.amberDark,
-          lineHeight: 1.6, margin: 0,
+          fontFamily: font.sans, fontSize: 12, color: C.amberDark, lineHeight: 1.6, margin: 0,
         }}>
           Amber reviews each application to confirm role, fit, and context before membership is activated. This is not instant access — it is considered admission.
         </p>
@@ -544,7 +816,7 @@ const ApplyScreen = ({ onNav }) => (
 
       <Btn onClick={() => onNav(S.ELICIT_INTRO)}>Submit application</Btn>
     </div>
-  </Phone>
+  </ScreenShell>
 );
 
 const applyNotes = [
@@ -555,15 +827,13 @@ const applyNotes = [
 ];
 
 // ═══════════════════════════════════════════
-// SCREEN C — Elicitation Intro
+// SCREEN D — Elicitation Intro
 // ═══════════════════════════════════════════
 
 const ElicitIntroScreen = ({ onNav }) => (
-  <Phone>
+  <ScreenShell>
     <div style={{ padding: "20px 32px 32px" }}>
-      <button onClick={() => onNav(S.APPLY)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 24, color: C.textMuted, fontFamily: font.sans, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 16 }}>‹</span> Back
-      </button>
+      <BackBtn onClick={() => onNav(S.APPLY)} label="Back to Apply" />
 
       <div style={{ textAlign: "center", marginBottom: 32 }}>
         <div style={{
@@ -607,7 +877,7 @@ const ElicitIntroScreen = ({ onNav }) => (
           }}>
             <span style={{
               fontFamily: font.mono, fontSize: 10, color: C.amber,
-              fontWeight: 500, marginTop: 2, flexShrink: 0,
+              fontWeight: 500, marginTop: 2, flexShrink: 0, minWidth: 60,
             }}>{item.label}</span>
             <span style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.5 }}>
               {item.desc}
@@ -621,8 +891,7 @@ const ElicitIntroScreen = ({ onNav }) => (
         marginBottom: 28, borderLeft: `3px solid ${C.amber}`,
       }}>
         <p style={{
-          fontFamily: font.sans, fontSize: 12, color: C.amberDark,
-          lineHeight: 1.6, margin: 0,
+          fontFamily: font.sans, fontSize: 12, color: C.amberDark, lineHeight: 1.6, margin: 0,
         }}>
           Nothing you share is surfaced to another member without your explicit consent. You choose what becomes visible, to whom, and when.
         </p>
@@ -641,7 +910,7 @@ const ElicitIntroScreen = ({ onNav }) => (
         <span style={{ fontFamily: font.mono, fontSize: 10.5, color: C.textMuted }}>Approximately 8 minutes</span>
       </div>
     </div>
-  </Phone>
+  </ScreenShell>
 );
 
 const elicitIntroNotes = [
@@ -652,7 +921,7 @@ const elicitIntroNotes = [
 ];
 
 // ═══════════════════════════════════════════
-// SCREEN D — Elicitation Chat
+// SCREEN E — Elicitation Chat
 // ═══════════════════════════════════════════
 
 const ElicitChatScreen = ({ onNav }) => {
@@ -670,18 +939,21 @@ const ElicitChatScreen = ({ onNav }) => {
   const visible = messages.slice(0, step + 1);
 
   return (
-    <Phone>
-      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <ScreenShell>
+      <div style={{ display: "flex", flexDirection: "column", minHeight: 600 }}>
         <div style={{
           padding: "8px 24px 14px", borderBottom: `1px solid ${C.borderLight}`,
           display: "flex", alignItems: "center", gap: 12,
         }}>
-          <button onClick={() => onNav(S.ELICIT_INTRO)} style={{
-            background: "none", border: "none", cursor: "pointer", padding: 0,
-            color: C.textMuted, fontSize: 16,
-          }}>‹</button>
+          <button onClick={() => onNav(S.ELICIT_INTRO)}
+            aria-label="Back to Elicitation Intro"
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              padding: 8, marginLeft: -8, minWidth: 44, minHeight: 44,
+              color: C.textMuted, fontSize: 18, lineHeight: 1,
+            }}>‹</button>
           <AmberMark size={28} />
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: font.sans, fontWeight: 600, fontSize: 13.5, color: C.text }}>Amber</div>
             <div style={{ fontFamily: font.mono, fontSize: 9.5, color: C.textMuted }}>Elicitation · listening</div>
           </div>
@@ -689,7 +961,8 @@ const ElicitChatScreen = ({ onNav }) => {
             display: "flex", gap: 4, alignItems: "center",
             padding: "3px 8px", borderRadius: 6,
             background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
-          }}>
+            flexShrink: 0,
+          }} aria-hidden="true">
             <span style={{ fontFamily: font.mono, fontSize: 8.5, color: C.textMuted }}>TYPE</span>
             <span style={{ fontFamily: font.mono, fontSize: 8.5, color: C.border }}>|</span>
             <span style={{ fontFamily: font.mono, fontSize: 8.5, color: C.border }}>VOICE</span>
@@ -719,10 +992,10 @@ const ElicitChatScreen = ({ onNav }) => {
         <div style={{ padding: "10px 20px 20px" }}>
           {step < messages.length - 1 ? (
             <button onClick={() => setStep(s => s + 1)} style={{
-              width: "100%", padding: "14px", borderRadius: 10,
+              width: "100%", padding: "14px", borderRadius: 10, minHeight: 48,
               border: `1.5px dashed ${C.border}`, background: C.surfaceWarm,
-              color: C.textMuted, fontFamily: font.sans, fontSize: 12.5,
-              cursor: "pointer",
+              color: C.textSecondary, fontFamily: font.sans, fontSize: 12.5,
+              cursor: "pointer", touchAction: "manipulation",
             }}>
               Continue conversation ›
             </button>
@@ -733,7 +1006,7 @@ const ElicitChatScreen = ({ onNav }) => {
           )}
         </div>
       </div>
-    </Phone>
+    </ScreenShell>
   );
 };
 
@@ -745,7 +1018,7 @@ const elicitChatNotes = [
 ];
 
 // ═══════════════════════════════════════════
-// SCREEN E — What Amber Has Understood
+// SCREEN F — What Amber Has Understood
 // ═══════════════════════════════════════════
 
 const UnderstoodScreen = ({ onNav }) => {
@@ -770,15 +1043,9 @@ const UnderstoodScreen = ({ onNav }) => {
   ];
 
   return (
-    <Phone>
+    <ScreenShell>
       <div style={{ padding: "20px 32px 32px" }}>
-        <button onClick={() => onNav(S.ELICIT_CHAT)} style={{
-          background: "none", border: "none", cursor: "pointer", padding: 0,
-          marginBottom: 24, color: C.textMuted, fontFamily: font.sans, fontSize: 13,
-          display: "flex", alignItems: "center", gap: 6,
-        }}>
-          <span style={{ fontSize: 16 }}>‹</span> Back
-        </button>
+        <BackBtn onClick={() => onNav(S.ELICIT_CHAT)} label="Back to Elicitation" />
 
         <ScreenChip type="member" />
         <h2 style={{
@@ -804,7 +1071,6 @@ const UnderstoodScreen = ({ onNav }) => {
           </span>
         </div>
 
-        {/* Situational context */}
         <div style={{
           fontFamily: font.mono, fontSize: 9, color: C.amber,
           textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8,
@@ -823,10 +1089,11 @@ const UnderstoodScreen = ({ onNav }) => {
                   fontFamily: font.mono, fontSize: 9.5, color: C.amber,
                   textTransform: "uppercase", letterSpacing: "0.1em",
                 }}>{f.label}</div>
-                <span style={{
+                <button style={{
                   fontFamily: font.mono, fontSize: 9, color: C.textMuted,
-                  cursor: "pointer", opacity: 0.6,
-                }}>Edit</span>
+                  cursor: "pointer", background: "none", border: "none",
+                  padding: "8px 4px", minHeight: 32,
+                }} aria-label={`Edit ${f.label}`}>Edit</button>
               </div>
               <div style={{
                 fontFamily: font.sans, fontSize: 12.5, color: C.text,
@@ -836,7 +1103,6 @@ const UnderstoodScreen = ({ onNav }) => {
           ))}
         </div>
 
-        {/* Long-term context */}
         <div style={{
           fontFamily: font.mono, fontSize: 9, color: C.textMuted,
           textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8,
@@ -845,7 +1111,6 @@ const UnderstoodScreen = ({ onNav }) => {
           background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
           borderRadius: 12, padding: "14px 20px", marginBottom: 16,
         }}>
-          {/* Tags */}
           <div style={{ marginBottom: 14 }}>
             <div style={{
               fontFamily: font.mono, fontSize: 9.5, color: C.textMuted,
@@ -862,34 +1127,28 @@ const UnderstoodScreen = ({ onNav }) => {
             </div>
           </div>
 
-          {/* Other active threads */}
           <div style={{ marginBottom: 14, paddingTop: 10, borderTop: `1px solid ${C.borderLight}` }}>
             <div style={{
               fontFamily: font.mono, fontSize: 9.5, color: C.textMuted,
               textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8,
             }}>Other active threads</div>
             {longTerm[1].items.map((item, i) => (
-              <div key={i} style={{
-                display: "flex", gap: 8, alignItems: "flex-start", padding: "4px 0",
-              }}>
-                <span style={{ color: C.amber, fontSize: 6, marginTop: 6, flexShrink: 0 }}>◆</span>
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "4px 0" }}>
+                <span style={{ color: C.amber, fontSize: 6, marginTop: 6, flexShrink: 0 }} aria-hidden="true">◆</span>
                 <span style={{ fontFamily: font.sans, fontSize: 12, color: C.textSecondary, lineHeight: 1.5 }}>{item}</span>
               </div>
             ))}
           </div>
 
-          {/* Introduction history */}
           <div style={{ paddingTop: 10, borderTop: `1px solid ${C.borderLight}` }}>
             <div style={{
               fontFamily: font.mono, fontSize: 9.5, color: C.textMuted,
               textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8,
             }}>Introduction history</div>
             {longTerm[2].items.map((item, i) => (
-              <div key={i} style={{
-                display: "flex", gap: 8, alignItems: "flex-start", padding: "4px 0",
-              }}>
-                <span style={{ color: C.textMuted, fontSize: 6, marginTop: 6, flexShrink: 0 }}>◇</span>
-                <span style={{ fontFamily: font.sans, fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>{item}</span>
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "4px 0" }}>
+                <span style={{ color: C.textMuted, fontSize: 6, marginTop: 6, flexShrink: 0 }} aria-hidden="true">◇</span>
+                <span style={{ fontFamily: font.sans, fontSize: 12, color: C.textSecondary, lineHeight: 1.5 }}>{item}</span>
               </div>
             ))}
           </div>
@@ -909,7 +1168,7 @@ const UnderstoodScreen = ({ onNav }) => {
 
         <Btn onClick={() => onNav(S.MATCH)}>Continue</Btn>
       </div>
-    </Phone>
+    </ScreenShell>
   );
 };
 
@@ -921,249 +1180,248 @@ const understoodNotes = [
 ];
 
 // ═══════════════════════════════════════════
-// SCREEN F — Match Rationale
+// SCREEN G — Match Rationale (4 states)
 // ═══════════════════════════════════════════
 
 const MatchScreen = ({ onNav }) => {
-  const [matchState, setMatchState] = useState("strong"); // strong | partial | bridge | hold
+  const [matchState, setMatchState] = useState("strong");
+  const states = [
+    { key: "strong", label: "Direct" },
+    { key: "partial", label: "Considered" },
+    { key: "bridge", label: "Bridge" },
+    { key: "hold", label: "Watching" },
+  ];
   return (
-  <Phone>
-    <div style={{ padding: "20px 32px 32px" }}>
-      <button onClick={() => onNav(S.UNDERSTOOD)} style={{
-        background: "none", border: "none", cursor: "pointer", padding: 0,
-        marginBottom: 24, color: C.textMuted, fontFamily: font.sans, fontSize: 13,
-        display: "flex", alignItems: "center", gap: 6,
-      }}>
-        <span style={{ fontSize: 16 }}>‹</span> Back
-      </button>
+    <ScreenShell>
+      <div style={{ padding: "20px 32px 32px" }}>
+        <BackBtn onClick={() => onNav(S.UNDERSTOOD)} label="Back to Understanding" />
 
-      <ScreenChip type="member" />
+        <ScreenChip type="member" />
 
-      {/* State toggle for prototype demonstration */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
-        {[
-          { key: "strong", label: "Direct" },
-          { key: "partial", label: "Considered" },
-          { key: "bridge", label: "Bridge" },
-          { key: "hold", label: "Watching" },
-        ].map(s => (
-          <button key={s.key} onClick={() => setMatchState(s.key)} style={{
-            padding: "5px 12px", borderRadius: 99, fontSize: 11,
-            fontFamily: font.mono, cursor: "pointer",
-            border: matchState === s.key ? `1.5px solid ${C.text}` : `1px solid ${C.border}`,
-            background: matchState === s.key ? C.text : C.surface,
-            color: matchState === s.key ? C.bg : C.textMuted,
-          }}>{s.label}</button>
-        ))}
-      </div>
-
-      {matchState === "strong" && (<>
-      <SectionLabel>Suggested introduction</SectionLabel>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
-        <div style={{
-          width: 50, height: 50, borderRadius: 99, background: C.surfaceWarm,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          border: `1.5px solid ${C.border}`,
-        }}>
-          <svg width="20" height="20" viewBox="0 0 20 20">
-            <circle cx="10" cy="8" r="4" fill={C.textMuted} opacity="0.4" />
-            <path d="M3 18c0-4 3-7 7-7s7 3 7 7" fill={C.textMuted} opacity="0.25" />
-          </svg>
+        <div role="group" aria-label="Match state — prototype demonstration"
+          style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
+          {states.map(s => (
+            <button
+              key={s.key}
+              className="a-pill"
+              onClick={() => setMatchState(s.key)}
+              aria-pressed={matchState === s.key}
+              style={{
+                border: matchState === s.key ? `1.5px solid ${C.text}` : `1px solid ${C.border}`,
+                background: matchState === s.key ? C.text : C.surface,
+                color: matchState === s.key ? C.bg : C.textSecondary,
+              }}
+            >{s.label}</button>
+          ))}
         </div>
-        <div>
-          <div style={{ fontFamily: font.sans, fontWeight: 600, fontSize: 14, color: C.text }}>Principal-level member</div>
-          <div style={{ fontFamily: font.sans, fontSize: 12, color: C.textSecondary }}>Switzerland · Family governance experience</div>
-          <div style={{ fontFamily: font.mono, fontSize: 9.5, color: C.textMuted, marginTop: 3 }}>Name disclosed after mutual consent</div>
-        </div>
-      </div>
 
-      <div style={{
-        background: C.surface, border: `1.5px solid ${C.amber}`,
-        borderRadius: 14, padding: "22px 20px", marginBottom: 18,
-      }}>
-        <div style={{
-          fontFamily: font.mono, fontSize: 10, color: C.amber,
-          textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14,
-        }}>Why Amber is suggesting this now</div>
-        <div style={{ fontFamily: font.sans, fontSize: 13.5, color: C.text, lineHeight: 1.75 }}>
-          <p style={{ margin: "0 0 12px" }}>
-            You are both thinking seriously about succession, but from different generational positions. This member has already navigated a comparable governance transition and is now focused on stewardship and legacy.
-          </p>
-          <p style={{ margin: "0 0 12px" }}>
-            You indicated that challenge with cultural fit would be more useful than broad similarity. This person's experience and directness appear well-suited to that preference.
-          </p>
-          <p style={{ margin: "0" }}>
-            This is a timely, high-context conversation — not a generic match based on shared keywords or sector overlap.
-          </p>
-        </div>
-      </div>
+        {matchState === "strong" && (<>
+          <SectionLabel>Suggested introduction</SectionLabel>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+            <div style={{
+              width: 50, height: 50, borderRadius: 99, background: C.surfaceWarm,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: `1.5px solid ${C.border}`, flexShrink: 0,
+            }} aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 20 20">
+                <circle cx="10" cy="8" r="4" fill={C.textMuted} opacity="0.4" />
+                <path d="M3 18c0-4 3-7 7-7s7 3 7 7" fill={C.textMuted} opacity="0.25" />
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontFamily: font.sans, fontWeight: 600, fontSize: 14, color: C.text }}>Principal-level member</div>
+              <div style={{ fontFamily: font.sans, fontSize: 12, color: C.textSecondary }}>Switzerland · Family governance experience</div>
+              <div style={{ fontFamily: font.mono, fontSize: 9.5, color: C.textMuted, marginTop: 3 }}>Name disclosed after mutual consent</div>
+            </div>
+          </div>
 
-      <div style={{
-        background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
-        borderRadius: 12, padding: "4px 0", marginBottom: 18,
-      }}>
-        {[
-          { dim: "Shared context", value: "Intergenerational succession, governance, stewardship" },
-          { dim: "Productive difference", value: "Different generational positions — complementary, not overlapping" },
-          { dim: "Decision relevance", value: "Both in active decision windows, not exploring abstractly" },
-          { dim: "Conversation fit", value: "Challenge with cultural fit — serious, direct, non-advisory" },
-          { dim: "Timing", value: "Both indicated active need within the coming weeks" },
-        ].map((d, i) => (
-          <div key={i} style={{
-            padding: "12px 20px",
-            borderBottom: i < 4 ? `1px solid ${C.borderLight}` : "none",
+          <div style={{
+            background: C.surface, border: `1.5px solid ${C.amber}`,
+            borderRadius: 14, padding: "22px 20px", marginBottom: 18,
           }}>
             <div style={{
-              fontFamily: font.mono, fontSize: 9.5, color: C.amber,
-              textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4,
-            }}>{d.dim}</div>
-            <div style={{
-              fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.5,
-            }}>{d.value}</div>
+              fontFamily: font.mono, fontSize: 10, color: C.amber,
+              textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14,
+            }}>Why Amber is suggesting this now</div>
+            <div style={{ fontFamily: font.sans, fontSize: 13.5, color: C.text, lineHeight: 1.75 }}>
+              <p style={{ margin: "0 0 12px" }}>
+                You are both thinking seriously about succession, but from different generational positions. This member has already navigated a comparable governance transition and is now focused on stewardship and legacy.
+              </p>
+              <p style={{ margin: "0 0 12px" }}>
+                You indicated that challenge with cultural fit would be more useful than broad similarity. This person's experience and directness appear well-suited to that preference.
+              </p>
+              <p style={{ margin: "0" }}>
+                This is a timely, high-context conversation — not a generic match based on shared keywords or sector overlap.
+              </p>
+            </div>
           </div>
-        ))}
-      </div>
 
-      <Btn variant="amber" onClick={() => onNav(S.CONSENT)}>Review consent options</Btn>
-      <div style={{ marginTop: 10 }}>
-        <Btn variant="secondary" onClick={() => onNav(S.UNDERSTOOD)}>Refine what Amber understood</Btn>
-      </div>
-      </>)}
-
-      {matchState === "partial" && (<>
-      <SectionLabel>Suggested introduction — partial overlap</SectionLabel>
-      <div style={{
-        background: C.surface, border: `1px solid ${C.border}`,
-        borderRadius: 14, padding: "20px", marginBottom: 18,
-      }}>
-        <div style={{
-          fontFamily: font.mono, fontSize: 10, color: C.amber,
-          textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14,
-        }}>Amber's assessment</div>
-        <p style={{ fontFamily: font.sans, fontSize: 13.5, color: C.text, lineHeight: 1.75, margin: "0 0 14px" }}>
-          Amber has not identified someone who precisely matches what you described. However, there is a member whose experience overlaps meaningfully with yours — particularly around governance questions and intergenerational responsibility.
-        </p>
-        <p style={{ fontFamily: font.sans, fontSize: 13, color: C.textSecondary, lineHeight: 1.7, margin: 0 }}>
-          The overlap is real but not exact. This person's focus is more institutional than familial, and their timing may be less immediate than yours. Whether that difference is productive is a judgement Amber cannot make alone.
-        </p>
-      </div>
-
-      <div style={{
-        background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
-        borderRadius: 12, padding: "16px 20px", marginBottom: 18,
-      }}>
-        <SectionLabel>Where this overlaps</SectionLabel>
-        {["Governance and stewardship themes", "Seriousness and non-advisory tone"].map((t, i) => (
-          <div key={i} style={{ display: "flex", gap: 10, alignItems: "center", padding: "6px 0" }}>
-            <span style={{ color: C.amber, fontSize: 7 }}>◆</span>
-            <span style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary }}>{t}</span>
-          </div>
-        ))}
-        <SectionLabel>Where it diverges</SectionLabel>
-        {["Institutional rather than family context", "Timing may not align as closely"].map((t, i) => (
-          <div key={i} style={{ display: "flex", gap: 10, alignItems: "center", padding: "6px 0" }}>
-            <span style={{ color: C.textMuted, fontSize: 7 }}>◇</span>
-            <span style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textMuted }}>{t}</span>
-          </div>
-        ))}
-      </div>
-
-      <Btn variant="amber" onClick={() => onNav(S.CONSENT)}>Review this introduction</Btn>
-      <div style={{ marginTop: 10 }}>
-        <Btn variant="secondary" onClick={() => setMatchState("hold")}>Ask Amber to wait</Btn>
-      </div>
-      </>)}
-
-      {matchState === "bridge" && (<>
-      <div style={{
-        background: C.surface, border: `1.5px solid ${C.amber}`,
-        borderRadius: 14, padding: "22px 20px", marginBottom: 18,
-      }}>
-        <div style={{
-          fontFamily: font.mono, fontSize: 10, color: C.amber,
-          textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14,
-        }}>Amber's assessment</div>
-        <p style={{ fontFamily: font.sans, fontSize: 13.5, color: C.text, lineHeight: 1.75, margin: "0 0 14px" }}>
-          I don't have a direct match for you right now. But I have identified a credible path — through a member whose background suggests they may know the right person.
-        </p>
-        <p style={{ fontFamily: font.sans, fontSize: 13, color: C.textSecondary, lineHeight: 1.7, margin: 0 }}>
-          I am going to ask them discreetly whether they can help. This is Amber's reputation and recommendation layer — activating trusted member networks when direct matching reaches its limit.
-        </p>
-      </div>
-
-      <div style={{
-        background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
-        borderRadius: 12, padding: "16px 20px", marginBottom: 18,
-      }}>
-        <SectionLabel>What this means for you</SectionLabel>
-        {[
-          "A trusted member will be asked privately whether they know someone relevant",
-          "If they do, they can introduce you themselves — or ask Amber to connect the three of you on WhatsApp",
-          "If they decline or don't reply, nothing happens and you are not informed of the approach",
-          "If successful, Amber will return to you with a warm, contextualised introduction",
-        ].map((t, i) => (
-          <div key={i} style={{
-            display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 0",
-            borderBottom: i < 3 ? `1px solid ${C.borderLight}` : "none",
+          <div style={{
+            background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
+            borderRadius: 12, padding: "4px 0", marginBottom: 18,
           }}>
-            <span style={{ color: C.amber, fontSize: 7, marginTop: 6, flexShrink: 0 }}>◆</span>
-            <span style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.5 }}>{t}</span>
+            {[
+              { dim: "Shared context", value: "Intergenerational succession, governance, stewardship" },
+              { dim: "Productive difference", value: "Different generational positions — complementary, not overlapping" },
+              { dim: "Decision relevance", value: "Both in active decision windows, not exploring abstractly" },
+              { dim: "Conversation fit", value: "Challenge with cultural fit — serious, direct, non-advisory" },
+              { dim: "Timing", value: "Both indicated active need within the coming weeks" },
+            ].map((d, i) => (
+              <div key={i} style={{
+                padding: "12px 20px",
+                borderBottom: i < 4 ? `1px solid ${C.borderLight}` : "none",
+              }}>
+                <div style={{
+                  fontFamily: font.mono, fontSize: 9.5, color: C.amber,
+                  textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4,
+                }}>{d.dim}</div>
+                <div style={{
+                  fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.5,
+                }}>{d.value}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div style={{
-        background: C.cream, borderRadius: 10, padding: 14,
-        marginBottom: 20, borderLeft: `3px solid ${C.amber}`,
-      }}>
-        <p style={{ fontFamily: font.sans, fontSize: 12, color: C.amberDark, lineHeight: 1.6, margin: 0 }}>
-          Amber will return within a few days. This pathway takes a little more time than a direct introduction — because it is being handled with the same care and discretion.
-        </p>
-      </div>
+          <Btn variant="amber" onClick={() => onNav(S.CONSENT)}>Review consent options</Btn>
+          <div style={{ marginTop: 10 }}>
+            <Btn variant="secondary" onClick={() => onNav(S.UNDERSTOOD)}>Refine what Amber understood</Btn>
+          </div>
+        </>)}
 
-      <Btn variant="secondary" onClick={() => onNav(S.BRIDGE)}>See how the bridge pathway works →</Btn>
-      <div style={{ marginTop: 10 }}>
-        <Btn variant="ghost" onClick={() => setMatchState("strong")}>View direct match (prototype demo)</Btn>
-      </div>
-      </>)}
+        {matchState === "partial" && (<>
+          <SectionLabel>Suggested introduction — partial overlap</SectionLabel>
+          <div style={{
+            background: C.surface, border: `1px solid ${C.border}`,
+            borderRadius: 14, padding: "20px", marginBottom: 18,
+          }}>
+            <div style={{
+              fontFamily: font.mono, fontSize: 10, color: C.amber,
+              textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14,
+            }}>Amber's assessment</div>
+            <p style={{ fontFamily: font.sans, fontSize: 13.5, color: C.text, lineHeight: 1.75, margin: "0 0 14px" }}>
+              Amber has not identified someone who precisely matches what you described. However, there is a member whose experience overlaps meaningfully with yours — particularly around governance questions and intergenerational responsibility.
+            </p>
+            <p style={{ fontFamily: font.sans, fontSize: 13, color: C.textSecondary, lineHeight: 1.7, margin: 0 }}>
+              The overlap is real but not exact. This person's focus is more institutional than familial, and their timing may be less immediate than yours. Whether that difference is productive is a judgement Amber cannot make alone.
+            </p>
+          </div>
 
-      {matchState === "hold" && (<>
-      <div style={{
-        background: C.surface, border: `1px solid ${C.border}`,
-        borderRadius: 14, padding: "24px 20px", marginBottom: 20, textAlign: "center",
-      }}>
-        <AmberMark size={36} />
-        <h3 style={{
-          fontFamily: font.serif, fontSize: 20, fontWeight: 500,
-          color: C.text, margin: "16px 0 10px", lineHeight: 1.3,
-        }}>Nothing right now — and that's a considered judgement</h3>
-        <p style={{
-          fontFamily: font.sans, fontSize: 13, color: C.textSecondary,
-          lineHeight: 1.7, margin: 0,
-        }}>
-          Amber has not identified someone who fits what you're looking for with enough precision to suggest an introduction. Rather than offer a generic connection, Amber will hold your request and continue watching. If someone suitable enters the community or becomes available, you will hear from Amber directly.
-        </p>
-      </div>
+          <div style={{
+            background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
+            borderRadius: 12, padding: "16px 20px", marginBottom: 18,
+          }}>
+            <SectionLabel>Where this overlaps</SectionLabel>
+            {["Governance and stewardship themes", "Seriousness and non-advisory tone"].map((t, i) => (
+              <div key={i} style={{ display: "flex", gap: 10, alignItems: "center", padding: "6px 0" }}>
+                <span style={{ color: C.amber, fontSize: 7 }} aria-hidden="true">◆</span>
+                <span style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary }}>{t}</span>
+              </div>
+            ))}
+            <SectionLabel>Where it diverges</SectionLabel>
+            {["Institutional rather than family context", "Timing may not align as closely"].map((t, i) => (
+              <div key={i} style={{ display: "flex", gap: 10, alignItems: "center", padding: "6px 0" }}>
+                <span style={{ color: C.textMuted, fontSize: 7 }} aria-hidden="true">◇</span>
+                <span style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary }}>{t}</span>
+              </div>
+            ))}
+          </div>
 
-      <div style={{
-        background: C.cream, borderRadius: 10, padding: 14,
-        marginBottom: 20, borderLeft: `3px solid ${C.amber}`,
-      }}>
-        <p style={{
-          fontFamily: font.sans, fontSize: 12, color: C.amberDark,
-          lineHeight: 1.6, margin: 0,
-        }}>
-          Not introducing someone yet is also a form of quality. Amber would rather wait than force a match that wastes your time or someone else's.
-        </p>
-      </div>
+          <Btn variant="amber" onClick={() => onNav(S.CONSENT)}>Review this introduction</Btn>
+          <div style={{ marginTop: 10 }}>
+            <Btn variant="secondary" onClick={() => setMatchState("hold")}>Ask Amber to wait</Btn>
+          </div>
+        </>)}
 
-      <Btn variant="secondary" onClick={() => onNav(S.UNDERSTOOD)}>Refine what you're looking for</Btn>
-      <div style={{ marginTop: 10 }}>
-        <Btn variant="ghost" onClick={() => setMatchState("strong")}>View strong match (prototype demo)</Btn>
+        {matchState === "bridge" && (<>
+          <div style={{
+            background: C.surface, border: `1.5px solid ${C.amber}`,
+            borderRadius: 14, padding: "22px 20px", marginBottom: 18,
+          }}>
+            <div style={{
+              fontFamily: font.mono, fontSize: 10, color: C.amber,
+              textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14,
+            }}>Amber's assessment</div>
+            <p style={{ fontFamily: font.sans, fontSize: 13.5, color: C.text, lineHeight: 1.75, margin: "0 0 14px" }}>
+              I don't have a direct match for you right now. But I have identified a credible path — through a member whose background suggests they may know the right person.
+            </p>
+            <p style={{ fontFamily: font.sans, fontSize: 13, color: C.textSecondary, lineHeight: 1.7, margin: 0 }}>
+              I am going to ask them discreetly whether they can help. This is Amber's reputation and recommendation layer — activating trusted member networks when direct matching reaches its limit.
+            </p>
+          </div>
+
+          <div style={{
+            background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
+            borderRadius: 12, padding: "16px 20px", marginBottom: 18,
+          }}>
+            <SectionLabel>What this means for you</SectionLabel>
+            {[
+              "A trusted member will be asked privately whether they know someone relevant",
+              "If they do, they can introduce you themselves — or ask Amber to connect the three of you on WhatsApp",
+              "If they decline or don't reply, nothing happens and you are not informed of the approach",
+              "If successful, Amber will return to you with a warm, contextualised introduction",
+            ].map((t, i) => (
+              <div key={i} style={{
+                display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 0",
+                borderBottom: i < 3 ? `1px solid ${C.borderLight}` : "none",
+              }}>
+                <span style={{ color: C.amber, fontSize: 7, marginTop: 6, flexShrink: 0 }} aria-hidden="true">◆</span>
+                <span style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.5 }}>{t}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{
+            background: C.cream, borderRadius: 10, padding: 14,
+            marginBottom: 20, borderLeft: `3px solid ${C.amber}`,
+          }}>
+            <p style={{ fontFamily: font.sans, fontSize: 12, color: C.amberDark, lineHeight: 1.6, margin: 0 }}>
+              Amber will return within a few days. This pathway takes a little more time than a direct introduction — because it is being handled with the same care and discretion.
+            </p>
+          </div>
+
+          <Btn variant="secondary" onClick={() => onNav(S.BRIDGE)}>See how the bridge pathway works →</Btn>
+          <div style={{ marginTop: 10 }}>
+            <Btn variant="ghost" onClick={() => setMatchState("strong")}>View direct match (prototype demo)</Btn>
+          </div>
+        </>)}
+
+        {matchState === "hold" && (<>
+          <div style={{
+            background: C.surface, border: `1px solid ${C.border}`,
+            borderRadius: 14, padding: "24px 20px", marginBottom: 20, textAlign: "center",
+          }}>
+            <AmberMark size={36} />
+            <h3 style={{
+              fontFamily: font.serif, fontSize: 20, fontWeight: 500,
+              color: C.text, margin: "16px 0 10px", lineHeight: 1.3,
+            }}>Nothing right now — and that's a considered judgement</h3>
+            <p style={{
+              fontFamily: font.sans, fontSize: 13, color: C.textSecondary,
+              lineHeight: 1.7, margin: 0,
+            }}>
+              Amber has not identified someone who fits what you're looking for with enough precision to suggest an introduction. Rather than offer a generic connection, Amber will hold your request and continue watching. If someone suitable enters the community or becomes available, you will hear from Amber directly.
+            </p>
+          </div>
+
+          <div style={{
+            background: C.cream, borderRadius: 10, padding: 14,
+            marginBottom: 20, borderLeft: `3px solid ${C.amber}`,
+          }}>
+            <p style={{
+              fontFamily: font.sans, fontSize: 12, color: C.amberDark,
+              lineHeight: 1.6, margin: 0,
+            }}>
+              Not introducing someone yet is also a form of quality. Amber would rather wait than force a match that wastes your time or someone else's.
+            </p>
+          </div>
+
+          <Btn variant="secondary" onClick={() => onNav(S.UNDERSTOOD)}>Refine what you're looking for</Btn>
+          <div style={{ marginTop: 10 }}>
+            <Btn variant="ghost" onClick={() => setMatchState("strong")}>View strong match (prototype demo)</Btn>
+          </div>
+        </>)}
       </div>
-      </>)}
-    </div>
-  </Phone>
+    </ScreenShell>
   );
 };
 
@@ -1176,21 +1434,20 @@ const matchNotes = [
 ];
 
 // ═══════════════════════════════════════════
-// SCREEN H — Bridge Pathway (NEW)
+// SCREEN H — Bridge Pathway
 // ═══════════════════════════════════════════
 
 const BridgeScreen = ({ onNav }) => {
-  const [bridgeTab, setBridgeTab] = useState("callout"); // callout | handoff | followup
+  const [bridgeTab, setBridgeTab] = useState("callout");
+  const tabs = [
+    { key: "callout", label: "Amber's approach" },
+    { key: "handoff", label: "Handoff" },
+    { key: "followup", label: "Follow-up" },
+  ];
   return (
-    <Phone>
+    <ScreenShell>
       <div style={{ padding: "20px 32px 32px" }}>
-        <button onClick={() => onNav(S.MATCH)} style={{
-          background: "none", border: "none", cursor: "pointer", padding: 0,
-          marginBottom: 16, color: C.textMuted, fontFamily: font.sans, fontSize: 13,
-          display: "flex", alignItems: "center", gap: 6,
-        }}>
-          <span style={{ fontSize: 16 }}>‹</span> Back
-        </button>
+        <BackBtn onClick={() => onNav(S.MATCH)} label="Back to Match Rationale" />
 
         <ScreenChip type="system" />
         <h2 style={{
@@ -1204,143 +1461,145 @@ const BridgeScreen = ({ onNav }) => {
           Amber's reputation and recommendation layer — how trusted member networks are activated when direct matching reaches its limit.
         </p>
 
-        {/* Tab toggle */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
-          {[
-            { key: "callout", label: "Amber's approach" },
-            { key: "handoff", label: "Handoff" },
-            { key: "followup", label: "Follow-up" },
-          ].map(t => (
-            <button key={t.key} onClick={() => setBridgeTab(t.key)} style={{
-              padding: "5px 11px", borderRadius: 99, fontSize: 10,
-              fontFamily: font.mono, cursor: "pointer",
-              border: bridgeTab === t.key ? `1.5px solid ${C.text}` : `1px solid ${C.border}`,
-              background: bridgeTab === t.key ? C.text : C.surface,
-              color: bridgeTab === t.key ? C.bg : C.textMuted,
-            }}>{t.label}</button>
+        <div role="tablist" aria-label="Bridge pathway phases"
+          style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+          {tabs.map(t => (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={bridgeTab === t.key}
+              className="a-pill"
+              onClick={() => setBridgeTab(t.key)}
+              style={{
+                border: bridgeTab === t.key ? `1.5px solid ${C.text}` : `1px solid ${C.border}`,
+                background: bridgeTab === t.key ? C.text : C.surface,
+                color: bridgeTab === t.key ? C.bg : C.textSecondary,
+                fontSize: 10.5,
+              }}
+            >{t.label}</button>
           ))}
         </div>
 
         {bridgeTab === "callout" && (<>
-        <SectionLabel>What Member B receives from Amber</SectionLabel>
-        <div style={{
-          background: C.surface, border: `1.5px solid ${C.amber}`,
-          borderRadius: 14, padding: "20px", marginBottom: 18,
-        }}>
+          <SectionLabel>What Member B receives from Amber</SectionLabel>
           <div style={{
-            fontFamily: font.mono, fontSize: 9, color: C.amber,
-            textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12,
-          }}>From Amber · Private</div>
-          <p style={{ fontFamily: font.serif, fontSize: 14.5, color: C.text, lineHeight: 1.75, fontStyle: "italic", margin: "0 0 12px" }}>
-            I'm trying to help a member connect with someone who has experience of intergenerational family governance — a next-generation principal navigating when and how to reorient family capital toward impact. Given your background, I wondered whether you might know someone who would be open to a conversation?
-          </p>
-          <p style={{ fontFamily: font.sans, fontSize: 11.5, color: C.textMuted, lineHeight: 1.6, margin: 0 }}>
-            You are under no obligation to respond. If this isn't something you can help with right now, there is nothing to do.
-          </p>
-        </div>
-
-        <SectionLabel>Member B's response options</SectionLabel>
-        {[
-          { label: "I know someone — happy to help", active: true },
-          { label: "I might know someone — let me check", active: false },
-          { label: "I don't know anyone suitable", active: false },
-        ].map((opt, i) => (
-          <div key={i} style={{
-            padding: "12px 16px", borderRadius: 10, marginBottom: 8, cursor: "pointer",
-            background: opt.active ? C.amberLight : C.surface,
-            border: `1px solid ${opt.active ? C.amberBorder : C.border}`,
+            background: C.surface, border: `1.5px solid ${C.amber}`,
+            borderRadius: 14, padding: "20px", marginBottom: 18,
           }}>
-            <span style={{
-              fontFamily: font.sans, fontSize: 13,
-              color: opt.active ? C.amberDark : C.textSecondary,
-              fontWeight: opt.active ? 500 : 400,
-            }}>{opt.label}</span>
+            <div style={{
+              fontFamily: font.mono, fontSize: 9, color: C.amber,
+              textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12,
+            }}>From Amber · Private</div>
+            <p style={{ fontFamily: font.serif, fontSize: 14.5, color: C.text, lineHeight: 1.75, fontStyle: "italic", margin: "0 0 12px" }}>
+              I'm trying to help a member connect with someone who has experience of intergenerational family governance — a next-generation principal navigating when and how to reorient family capital toward impact. Given your background, I wondered whether you might know someone who would be open to a conversation?
+            </p>
+            <p style={{ fontFamily: font.sans, fontSize: 11.5, color: C.textSecondary, lineHeight: 1.6, margin: 0 }}>
+              You are under no obligation to respond. If this isn't something you can help with right now, there is nothing to do.
+            </p>
           </div>
-        ))}
-        <div style={{
-          background: C.surfaceWarm, borderRadius: 8, padding: 12, marginTop: 4,
-        }}>
-          <p style={{ fontFamily: font.sans, fontSize: 11.5, color: C.textMuted, lineHeight: 1.6, margin: 0 }}>
-            Non-reply is treated identically to a quiet decline. No follow-up. No record of the approach shared with anyone.
-          </p>
-        </div>
+
+          <SectionLabel>Member B's response options</SectionLabel>
+          {[
+            { label: "I know someone — happy to help", active: true },
+            { label: "I might know someone — let me check", active: false },
+            { label: "I don't know anyone suitable", active: false },
+          ].map((opt, i) => (
+            <div key={i} style={{
+              padding: "14px 16px", borderRadius: 10, marginBottom: 8,
+              background: opt.active ? C.amberLight : C.surface,
+              border: `1px solid ${opt.active ? C.amberBorder : C.border}`,
+              minHeight: 44,
+              display: "flex", alignItems: "center",
+            }}>
+              <span style={{
+                fontFamily: font.sans, fontSize: 13,
+                color: opt.active ? C.amberDark : C.textSecondary,
+                fontWeight: opt.active ? 500 : 400,
+              }}>{opt.label}</span>
+            </div>
+          ))}
+          <div style={{ background: C.surfaceWarm, borderRadius: 8, padding: 12, marginTop: 4 }}>
+            <p style={{ fontFamily: font.sans, fontSize: 11.5, color: C.textSecondary, lineHeight: 1.6, margin: 0 }}>
+              Non-reply is treated identically to a quiet decline. No follow-up. No record of the approach shared with anyone.
+            </p>
+          </div>
         </>)}
 
         {bridgeTab === "handoff" && (<>
-        <SectionLabel>When B confirms they can help</SectionLabel>
-        <p style={{ fontFamily: font.sans, fontSize: 13, color: C.textSecondary, lineHeight: 1.65, margin: "0 0 16px" }}>
-          Amber shares brief context about the requesting member, confirms B still wishes to proceed, then asks:
-        </p>
-        <div style={{
-          background: C.surface, border: `1.5px solid ${C.amber}`,
-          borderRadius: 14, padding: "20px", marginBottom: 20,
-        }}>
-          <div style={{
-            fontFamily: font.mono, fontSize: 9, color: C.amber,
-            textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12,
-          }}>From Amber · Private</div>
-          <p style={{ fontFamily: font.serif, fontSize: 14.5, color: C.text, lineHeight: 1.75, fontStyle: "italic", margin: 0 }}>
-            Would you like to make this introduction yourself — in your own voice, through your own channel? Or shall I connect the three of you on WhatsApp, so they can take it from there?
+          <SectionLabel>When B confirms they can help</SectionLabel>
+          <p style={{ fontFamily: font.sans, fontSize: 13, color: C.textSecondary, lineHeight: 1.65, margin: "0 0 16px" }}>
+            Amber shares brief context about the requesting member, confirms B still wishes to proceed, then asks:
           </p>
-        </div>
-
-        {[
-          {
-            label: "Option A — B makes the introduction",
-            desc: "B uses their own relationship with X. Amber provides a brief context note to draw on if useful. The introduction carries B's full personal weight and voice.",
-          },
-          {
-            label: "Option B — Amber connects via WhatsApp",
-            desc: "Amber creates a WhatsApp group with the requesting member, B, and X. Amber sends a single, considered introduction message and steps back. B is released from further obligation while retaining the relational credit.",
-          },
-        ].map((opt, i) => (
-          <div key={i} style={{
-            background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
-            borderRadius: 12, padding: "16px 18px", marginBottom: 10,
+          <div style={{
+            background: C.surface, border: `1.5px solid ${C.amber}`,
+            borderRadius: 14, padding: "20px", marginBottom: 20,
           }}>
             <div style={{
-              fontFamily: font.mono, fontSize: 9.5, color: C.amber,
-              textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 7,
-            }}>{opt.label}</div>
-            <p style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.55, margin: 0 }}>{opt.desc}</p>
+              fontFamily: font.mono, fontSize: 9, color: C.amber,
+              textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12,
+            }}>From Amber · Private</div>
+            <p style={{ fontFamily: font.serif, fontSize: 14.5, color: C.text, lineHeight: 1.75, fontStyle: "italic", margin: 0 }}>
+              Would you like to make this introduction yourself — in your own voice, through your own channel? Or shall I connect the three of you on WhatsApp, so they can take it from there?
+            </p>
           </div>
-        ))}
+
+          {[
+            {
+              label: "Option A — B makes the introduction",
+              desc: "B uses their own relationship with X. Amber provides a brief context note to draw on if useful. The introduction carries B's full personal weight and voice.",
+            },
+            {
+              label: "Option B — Amber connects via WhatsApp",
+              desc: "Amber creates a WhatsApp group with the requesting member, B, and X. Amber sends a single, considered introduction message and steps back. B is released from further obligation while retaining the relational credit.",
+            },
+          ].map((opt, i) => (
+            <div key={i} style={{
+              background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
+              borderRadius: 12, padding: "16px 18px", marginBottom: 10,
+            }}>
+              <div style={{
+                fontFamily: font.mono, fontSize: 9.5, color: C.amber,
+                textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 7,
+              }}>{opt.label}</div>
+              <p style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.55, margin: 0 }}>{opt.desc}</p>
+            </div>
+          ))}
         </>)}
 
         {bridgeTab === "followup" && (<>
-        <SectionLabel>One week later — if no introduction has been made</SectionLabel>
-        <div style={{
-          background: C.surface, border: `1.5px solid ${C.amber}`,
-          borderRadius: 14, padding: "20px", marginBottom: 18,
-        }}>
+          <SectionLabel>One week later — if no introduction has been made</SectionLabel>
           <div style={{
-            fontFamily: font.mono, fontSize: 9, color: C.amber,
-            textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12,
-          }}>From Amber · Private</div>
-          <p style={{ fontFamily: font.serif, fontSize: 14.5, color: C.text, lineHeight: 1.75, fontStyle: "italic", margin: 0 }}>
-            You kindly offered to connect them. I think they'd enjoy knowing each other. Would you still like to make that happen — or has the moment passed?
+            background: C.surface, border: `1.5px solid ${C.amber}`,
+            borderRadius: 14, padding: "20px", marginBottom: 18,
+          }}>
+            <div style={{
+              fontFamily: font.mono, fontSize: 9, color: C.amber,
+              textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12,
+            }}>From Amber · Private</div>
+            <p style={{ fontFamily: font.serif, fontSize: 14.5, color: C.text, lineHeight: 1.75, fontStyle: "italic", margin: 0 }}>
+              You kindly offered to connect them. I think they'd enjoy knowing each other. Would you still like to make that happen — or has the moment passed?
+            </p>
+          </div>
+          <p style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.65, margin: "0 0 20px" }}>
+            Warm, not transactional. It reminds B of their own stated intention rather than chasing a task. "Or has the moment passed?" gives B a graceful exit — acknowledging that introductions are time-sensitive social acts.
           </p>
-        </div>
-        <p style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.65, margin: "0 0 20px" }}>
-          Warm, not transactional. It reminds B of their own stated intention rather than chasing a task. "Or has the moment passed?" gives B a graceful exit — acknowledging that introductions are time-sensitive social acts.
-        </p>
 
-        <div style={{ height: 1, background: C.borderLight, margin: "0 0 18px" }} />
-        <SectionLabel>Post-introduction outcome check-in (all pathways)</SectionLabel>
-        <div style={{
-          background: C.cream, border: `1px solid ${C.amberBorder}`,
-          borderRadius: 12, padding: "16px 18px", marginBottom: 14,
-        }}>
-          <p style={{ fontFamily: font.serif, fontSize: 15, color: C.amberDark, fontStyle: "italic", lineHeight: 1.7, margin: 0 }}>
-            "It's been a week. Was the conversation useful?"
+          <div style={{ height: 1, background: C.borderLight, margin: "0 0 18px" }} />
+          <SectionLabel>Post-introduction outcome check-in (all pathways)</SectionLabel>
+          <div style={{
+            background: C.cream, border: `1px solid ${C.amberBorder}`,
+            borderRadius: 12, padding: "16px 18px", marginBottom: 14,
+          }}>
+            <p style={{ fontFamily: font.serif, fontSize: 15, color: C.amberDark, fontStyle: "italic", lineHeight: 1.7, margin: 0 }}>
+              "It's been a week. Was the conversation useful?"
+            </p>
+          </div>
+          <p style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.65, margin: 0 }}>
+            The same follow-up applies whether Amber made the introduction directly, a partial match was accepted, or a bridge member facilitated it. Consistency across all four pathways is a governance principle, not a design convenience. Outcome data improves future matching and bridge identification — without individual attribution.
           </p>
-        </div>
-        <p style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.65, margin: 0 }}>
-          The same follow-up applies whether Amber made the introduction directly, a partial match was accepted, or a bridge member facilitated it. Consistency across all four pathways is a governance principle, not a design convenience. Outcome data improves future matching and bridge identification — without individual attribution.
-        </p>
         </>)}
       </div>
-    </Phone>
+    </ScreenShell>
   );
 };
 
@@ -1352,21 +1611,15 @@ const bridgeNotes = [
 ];
 
 // ═══════════════════════════════════════════
-// SCREEN G — Double Opt-In / Consent
+// SCREEN I — Double Opt-In / Consent
 // ═══════════════════════════════════════════
 
 const ConsentScreen = ({ onNav }) => {
   const [memberConsent, setMemberConsent] = useState(null);
   return (
-    <Phone>
+    <ScreenShell>
       <div style={{ padding: "20px 32px 32px" }}>
-        <button onClick={() => onNav(S.MATCH)} style={{
-          background: "none", border: "none", cursor: "pointer", padding: 0,
-          marginBottom: 24, color: C.textMuted, fontFamily: font.sans, fontSize: 13,
-          display: "flex", alignItems: "center", gap: 6,
-        }}>
-          <span style={{ fontSize: 16 }}>‹</span> Back
-        </button>
+        <BackBtn onClick={() => onNav(S.MATCH)} label="Back to Match Rationale" />
 
         <h2 style={{
           fontFamily: font.serif, fontSize: 24, fontWeight: 500,
@@ -1379,7 +1632,6 @@ const ConsentScreen = ({ onNav }) => {
           Amber only introduces members when both sides can see the relevance. No one is surfaced without context and consent.
         </p>
 
-        {/* State diagram */}
         <div style={{
           background: C.surface, border: `1px solid ${C.border}`,
           borderRadius: 14, padding: "20px", marginBottom: 24,
@@ -1401,13 +1653,13 @@ const ConsentScreen = ({ onNav }) => {
                 background: s.done ? C.amber : s.active ? C.amberLight : s.waiting ? C.cream : C.surfaceWarm,
                 border: s.done ? "none" : `1.5px solid ${s.active ? C.amber : C.border}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
+              }} aria-hidden="true">
                 {s.done && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2.5 5.2L4.2 6.8L7.5 3.2" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>}
                 {s.active && <div style={{ width: 8, height: 8, borderRadius: 99, background: C.amber }} />}
               </div>
               <span style={{
                 fontFamily: font.sans, fontSize: 13,
-                color: s.done ? C.text : s.active ? C.text : C.textMuted,
+                color: s.done ? C.text : s.active ? C.text : C.textSecondary,
                 fontWeight: s.active ? 600 : 400,
               }}>{s.label}</span>
               {s.waiting && <span style={{ fontFamily: font.mono, fontSize: 10, color: C.textMuted, marginLeft: "auto" }}>Waiting</span>}
@@ -1415,7 +1667,6 @@ const ConsentScreen = ({ onNav }) => {
           ))}
         </div>
 
-        {/* Consent controls */}
         <div style={{
           background: C.cream, border: `1px solid ${C.amberBorder}`,
           borderRadius: 12, padding: "16px 20px", marginBottom: 24,
@@ -1430,16 +1681,16 @@ const ConsentScreen = ({ onNav }) => {
           ].map((c, i) => (
             <div key={i} style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "9px 0",
+              gap: 12, padding: "9px 0",
               borderBottom: i < 4 ? `1px solid rgba(184,146,62,0.12)` : "none",
             }}>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <span style={{ fontFamily: font.sans, fontSize: 12.5, color: C.text }}>{c.label}</span>
-                {c.note && <div style={{ fontFamily: font.mono, fontSize: 9, color: C.textMuted, marginTop: 1 }}>{c.note}</div>}
+                {c.note && <div style={{ fontFamily: font.mono, fontSize: 9, color: C.textSecondary, marginTop: 1 }}>{c.note}</div>}
               </div>
               <span style={{
-                fontFamily: font.mono, fontSize: 10,
-                color: c.shared ? C.amber : C.textMuted,
+                fontFamily: font.mono, fontSize: 10, flexShrink: 0,
+                color: c.shared ? C.amber : C.textSecondary,
               }}>{c.shared ? "Visible" : "Private"}</span>
             </div>
           ))}
@@ -1465,7 +1716,7 @@ const ConsentScreen = ({ onNav }) => {
           </div>
         )}
       </div>
-    </Phone>
+    </ScreenShell>
   );
 };
 
@@ -1477,22 +1728,16 @@ const consentNotes = [
 ];
 
 // ═══════════════════════════════════════════
-// SCREEN H — Introduction Handoff
+// SCREEN J — Introduction Handoff
 // ═══════════════════════════════════════════
 
 const HandoffScreen = ({ onNav }) => (
-  <Phone>
+  <ScreenShell>
     <div style={{ padding: "20px 32px 32px" }}>
-      <button onClick={() => onNav(S.CONSENT)} style={{
-        background: "none", border: "none", cursor: "pointer", padding: 0,
-        marginBottom: 24, color: C.textMuted, fontFamily: font.sans, fontSize: 13,
-        display: "flex", alignItems: "center", gap: 6,
-      }}>
-        <span style={{ fontSize: 16 }}>‹</span> Back
-      </button>
+      <BackBtn onClick={() => onNav(S.CONSENT)} label="Back to Consent" />
 
       <div style={{ textAlign: "center", marginBottom: 28 }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }} aria-hidden="true">
           <div style={{
             width: 44, height: 44, borderRadius: 99, background: C.text,
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -1511,7 +1756,7 @@ const HandoffScreen = ({ onNav }) => (
           color: C.text, margin: "0 0 4px", lineHeight: 1.25,
         }}>Introduction</h2>
         <p style={{
-          fontFamily: font.sans, fontSize: 12.5, color: C.textMuted, margin: 0,
+          fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, margin: 0,
         }}>Both members have consented</p>
       </div>
 
@@ -1552,14 +1797,12 @@ const HandoffScreen = ({ onNav }) => (
         marginBottom: 16, borderLeft: `3px solid ${C.amber}`,
       }}>
         <p style={{
-          fontFamily: font.sans, fontSize: 12, color: C.amberDark,
-          lineHeight: 1.6, margin: 0,
+          fontFamily: font.sans, fontSize: 12, color: C.amberDark, lineHeight: 1.6, margin: 0,
         }}>
           Amber will check in after a reasonable interval to understand what was useful. There is no rush — reflection matters more than speed.
         </p>
       </div>
 
-      {/* Follow-through and pacing — stacked layout */}
       <div style={{
         background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
         borderRadius: 12, padding: "16px 20px", marginBottom: 24,
@@ -1585,7 +1828,7 @@ const HandoffScreen = ({ onNav }) => (
 
       <Btn onClick={() => onNav(S.OUTCOME)}>Send introduction</Btn>
     </div>
-  </Phone>
+  </ScreenShell>
 );
 
 const handoffNotes = [
@@ -1596,7 +1839,7 @@ const handoffNotes = [
 ];
 
 // ═══════════════════════════════════════════
-// SCREEN I — Outcome / Follow-through
+// SCREEN K — Outcome / Follow-through
 // ═══════════════════════════════════════════
 
 const OutcomeScreen = ({ onNav }) => {
@@ -1613,15 +1856,9 @@ const OutcomeScreen = ({ onNav }) => {
   ];
 
   return (
-    <Phone>
+    <ScreenShell>
       <div style={{ padding: "20px 32px 32px" }}>
-        <button onClick={() => onNav(S.HANDOFF)} style={{
-          background: "none", border: "none", cursor: "pointer", padding: 0,
-          marginBottom: 24, color: C.textMuted, fontFamily: font.sans, fontSize: 13,
-          display: "flex", alignItems: "center", gap: 6,
-        }}>
-          <span style={{ fontSize: 16 }}>‹</span> Back
-        </button>
+        <BackBtn onClick={() => onNav(S.HANDOFF)} label="Back to Introduction" />
 
         <ScreenChip type="member" />
         <h2 style={{
@@ -1635,20 +1872,27 @@ const OutcomeScreen = ({ onNav }) => {
           Amber is learning about your timing preferences, the kinds of introduction that create value, and whether challenge or similarity was more productive. This shapes what comes next.
         </p>
 
-        <div style={{
+        <div role="radiogroup" aria-label="Outcome reflection" style={{
           background: C.surface, border: `1px solid ${C.border}`,
           borderRadius: 14, padding: "4px 0", marginBottom: 24,
         }}>
           {options.map((opt, i) => (
-            <div
+            <button
               key={i}
+              role="radio"
+              aria-checked={selected === i}
               onClick={() => setSelected(i)}
               style={{
-                padding: "14px 20px", cursor: "pointer",
+                width: "100%", textAlign: "left",
+                padding: "14px 20px", cursor: "pointer", minHeight: 48,
                 borderBottom: i < options.length - 1 ? `1px solid ${C.borderLight}` : "none",
+                borderTop: "none", borderLeft: "none", borderRight: "none",
                 display: "flex", alignItems: "center", gap: 14,
                 background: selected === i ? C.cream : "transparent",
                 transition: "background 0.15s",
+                fontFamily: font.sans, fontSize: 13,
+                color: selected === i ? C.text : C.textSecondary,
+                touchAction: "manipulation",
               }}
             >
               <div style={{
@@ -1656,14 +1900,11 @@ const OutcomeScreen = ({ onNav }) => {
                 border: `1.5px solid ${selected === i ? C.amber : C.border}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 flexShrink: 0,
-              }}>
+              }} aria-hidden="true">
                 {selected === i && <div style={{ width: 8, height: 8, borderRadius: 99, background: C.amber }} />}
               </div>
-              <span style={{
-                fontFamily: font.sans, fontSize: 13,
-                color: selected === i ? C.text : C.textSecondary,
-              }}>{opt}</span>
-            </div>
+              <span>{opt}</span>
+            </button>
           ))}
         </div>
 
@@ -1694,9 +1935,9 @@ const OutcomeScreen = ({ onNav }) => {
                 <div key={i} style={{
                   display: "flex", gap: 10, alignItems: "flex-start",
                   padding: "8px 0",
-                  borderBottom: i < 3 ? `1px solid ${C.borderLight}` : "none",
+                  borderBottom: i < 2 ? `1px solid ${C.borderLight}` : "none",
                 }}>
-                  <span style={{ color: C.amber, fontSize: 7, marginTop: 6, flexShrink: 0 }}>◆</span>
+                  <span style={{ color: C.amber, fontSize: 7, marginTop: 6, flexShrink: 0 }} aria-hidden="true">◆</span>
                   <span style={{ fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary, lineHeight: 1.55 }}>{update}</span>
                 </div>
               ))}
@@ -1707,8 +1948,7 @@ const OutcomeScreen = ({ onNav }) => {
               marginBottom: 24, borderLeft: `3px solid ${C.amber}`,
             }}>
               <p style={{
-                fontFamily: font.sans, fontSize: 12, color: C.amberDark,
-                lineHeight: 1.6, margin: 0,
+                fontFamily: font.sans, fontSize: 12, color: C.amberDark, lineHeight: 1.6, margin: 0,
               }}>
                 Feedback is private. The other member will not see your specific response — they provide their own, independently.
               </p>
@@ -1726,7 +1966,7 @@ const OutcomeScreen = ({ onNav }) => {
           </>
         )}
       </div>
-    </Phone>
+    </ScreenShell>
   );
 };
 
@@ -1738,19 +1978,13 @@ const outcomeNotes = [
 ];
 
 // ═══════════════════════════════════════════
-// SCREEN J — Governance
+// SCREEN L — Governance
 // ═══════════════════════════════════════════
 
 const GovernanceScreen = ({ onNav }) => (
-  <Phone>
+  <ScreenShell>
     <div style={{ padding: "20px 32px 32px" }}>
-      <button onClick={() => onNav(S.OUTCOME)} style={{
-        background: "none", border: "none", cursor: "pointer", padding: 0,
-        marginBottom: 24, color: C.textMuted, fontFamily: font.sans, fontSize: 13,
-        display: "flex", alignItems: "center", gap: 6,
-      }}>
-        <span style={{ fontSize: 16 }}>‹</span> Back
-      </button>
+      <BackBtn onClick={() => onNav(S.OUTCOME)} label="Back to Outcome" />
 
       <ScreenChip type="system" />
       <h2 style={{
@@ -1803,7 +2037,7 @@ const GovernanceScreen = ({ onNav }) => (
         <Btn variant="secondary" onClick={() => onNav(S.TRENDS)}>View community briefing →</Btn>
       </div>
     </div>
-  </Phone>
+  </ScreenShell>
 );
 
 const governanceNotes = [
@@ -1814,7 +2048,7 @@ const governanceNotes = [
 ];
 
 // ═══════════════════════════════════════════
-// SCREEN K — Community Trends
+// SCREEN M — Community Trends
 // ═══════════════════════════════════════════
 
 const TrendsScreen = ({ onNav }) => {
@@ -1826,7 +2060,7 @@ const TrendsScreen = ({ onNav }) => {
     { label: "Family systems & mediation", pct: 22, trend: "Niche" },
   ];
 
-  const trendColor = (t) => t === "Prominent" ? C.amber : t === "Emerging" ? C.amberDark : t === "Declining" ? C.textMuted : "#8A8680";
+  const trendColor = (t) => t === "Prominent" ? C.amber : t === "Emerging" ? C.amberDark : t === "Declining" ? C.textSecondary : "#8A8680";
 
   const signals = [
     { label: "Introductions", value: "14 this quarter", note: "across 9 distinct thematic pairings" },
@@ -1836,15 +2070,9 @@ const TrendsScreen = ({ onNav }) => {
   ];
 
   return (
-    <Phone>
+    <ScreenShell>
       <div style={{ padding: "20px 32px 32px" }}>
-        <button onClick={() => onNav(S.GOVERNANCE)} style={{
-          background: "none", border: "none", cursor: "pointer", padding: 0,
-          marginBottom: 24, color: C.textMuted, fontFamily: font.sans, fontSize: 13,
-          display: "flex", alignItems: "center", gap: 6,
-        }}>
-          <span style={{ fontSize: 16 }}>‹</span> Back
-        </button>
+        <BackBtn onClick={() => onNav(S.GOVERNANCE)} label="Back to Governance" />
 
         <div style={{
           fontFamily: font.mono, fontSize: 9, color: C.amber,
@@ -1862,7 +2090,6 @@ const TrendsScreen = ({ onNav }) => {
           What is moving across Amber. Individual conversations accumulate into collective patterns — visible here without exposing anyone.
         </p>
 
-        {/* Prestige-safe signals */}
         <div style={{
           background: C.surface, border: `1px solid ${C.border}`,
           borderRadius: 14, padding: "18px 20px", marginBottom: 18,
@@ -1873,16 +2100,15 @@ const TrendsScreen = ({ onNav }) => {
               padding: "10px 0",
               borderBottom: i < signals.length - 1 ? `1px solid ${C.borderLight}` : "none",
             }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2, gap: 12, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: font.sans, fontSize: 12.5, fontWeight: 600, color: C.text }}>{s.label}</span>
                 <span style={{ fontFamily: font.mono, fontSize: 10, color: C.amber }}>{s.value}</span>
               </div>
-              <span style={{ fontFamily: font.sans, fontSize: 11.5, color: C.textMuted, lineHeight: 1.5 }}>{s.note}</span>
+              <span style={{ fontFamily: font.sans, fontSize: 11.5, color: C.textSecondary, lineHeight: 1.5 }}>{s.note}</span>
             </div>
           ))}
         </div>
 
-        {/* Theme bars */}
         <div style={{
           background: C.surfaceWarm, border: `1px solid ${C.borderLight}`,
           borderRadius: 12, padding: "16px 20px", marginBottom: 18,
@@ -1890,7 +2116,7 @@ const TrendsScreen = ({ onNav }) => {
           <SectionLabel>Themes across the community</SectionLabel>
           {themes.map((t, i) => (
             <div key={i} style={{ marginBottom: i < themes.length - 1 ? 12 : 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, gap: 8 }}>
                 <span style={{ fontFamily: font.sans, fontSize: 12, color: C.text }}>{t.label}</span>
                 <span style={{
                   fontFamily: font.mono, fontSize: 9,
@@ -1898,7 +2124,7 @@ const TrendsScreen = ({ onNav }) => {
                   textTransform: "uppercase", letterSpacing: "0.08em",
                 }}>{t.trend}</span>
               </div>
-              <div style={{ height: 4, borderRadius: 2, background: C.borderLight, overflow: "hidden" }}>
+              <div style={{ height: 4, borderRadius: 2, background: C.borderLight, overflow: "hidden" }} aria-hidden="true">
                 <div style={{
                   height: "100%", width: `${t.pct}%`, borderRadius: 2,
                   background: t.trend === "Declining" ? C.textMuted : `linear-gradient(90deg, ${C.amber}, ${C.amberBorder})`,
@@ -1909,7 +2135,6 @@ const TrendsScreen = ({ onNav }) => {
           ))}
         </div>
 
-        {/* Relational topology */}
         <div style={{
           background: C.surface, border: `1px solid ${C.border}`,
           borderRadius: 12, padding: "16px 20px", marginBottom: 18,
@@ -1919,26 +2144,26 @@ const TrendsScreen = ({ onNav }) => {
             background: C.surfaceWarm, borderRadius: 8, padding: 14,
             marginBottom: 10, border: `1px solid ${C.borderLight}`,
           }}>
-            <svg viewBox="0 0 280 110" width="100%" style={{ display: "block" }}>
+            <svg viewBox="0 0 280 110" width="100%" style={{ display: "block" }} aria-hidden="true">
               <circle cx="60" cy="48" r="26" fill={C.amberLight} stroke={C.amberBorder} strokeWidth="1" />
               <circle cx="45" cy="40" r="3.5" fill={C.amber} opacity="0.7" />
               <circle cx="60" cy="34" r="4" fill={C.amber} opacity="0.8" />
               <circle cx="72" cy="46" r="3.5" fill={C.amber} opacity="0.6" />
               <circle cx="55" cy="56" r="3" fill={C.amber} opacity="0.5" />
-              <text x="60" y="84" textAnchor="middle" style={{ fontSize: 7.5, fill: C.textMuted, fontFamily: "IBM Plex Mono, monospace" }}>Governance</text>
+              <text x="60" y="84" textAnchor="middle" style={{ fontSize: 7.5, fill: C.textSecondary, fontFamily: "IBM Plex Mono, monospace" }}>Governance</text>
 
               <circle cx="190" cy="52" r="20" fill={C.amberLight} stroke={C.amberBorder} strokeWidth="1" />
               <circle cx="183" cy="46" r="3.5" fill={C.amber} opacity="0.6" />
               <circle cx="196" cy="44" r="3" fill={C.amber} opacity="0.7" />
               <circle cx="194" cy="58" r="3" fill={C.amber} opacity="0.5" />
-              <text x="190" y="84" textAnchor="middle" style={{ fontSize: 7.5, fill: C.textMuted, fontFamily: "IBM Plex Mono, monospace" }}>Climate</text>
+              <text x="190" y="84" textAnchor="middle" style={{ fontSize: 7.5, fill: C.textSecondary, fontFamily: "IBM Plex Mono, monospace" }}>Climate</text>
 
               <line x1="86" y1="48" x2="170" y2="52" stroke={C.amber} strokeWidth="1.5" strokeDasharray="4 3" opacity="0.4" />
 
               <circle cx="245" cy="38" r="12" fill={C.borderLight} stroke={C.border} strokeWidth="1" strokeDasharray="3 2" />
-              <circle cx="242" cy="36" r="2.5" fill={C.textMuted} opacity="0.3" />
-              <circle cx="248" cy="40" r="2" fill={C.textMuted} opacity="0.25" />
-              <text x="245" y="58" textAnchor="middle" style={{ fontSize: 7, fill: C.textMuted, fontFamily: "IBM Plex Mono, monospace" }}>Forming</text>
+              <circle cx="242" cy="36" r="2.5" fill={C.textSecondary} opacity="0.3" />
+              <circle cx="248" cy="40" r="2" fill={C.textSecondary} opacity="0.25" />
+              <text x="245" y="58" textAnchor="middle" style={{ fontSize: 7, fill: C.textSecondary, fontFamily: "IBM Plex Mono, monospace" }}>Forming</text>
             </svg>
           </div>
           <p style={{
@@ -1954,14 +2179,13 @@ const TrendsScreen = ({ onNav }) => {
           borderLeft: `3px solid ${C.amber}`,
         }}>
           <p style={{
-            fontFamily: font.sans, fontSize: 12, color: C.amberDark,
-            lineHeight: 1.6, margin: 0,
+            fontFamily: font.sans, fontSize: 12, color: C.amberDark, lineHeight: 1.6, margin: 0,
           }}>
             This is a member-facing briefing, not a system dashboard. It shows what the community is navigating collectively — and how individual conversations contribute to a broader picture that no single member can see alone.
           </p>
         </div>
       </div>
-    </Phone>
+    </ScreenShell>
   );
 };
 
@@ -1978,6 +2202,23 @@ const trendsNotes = [
 
 export default function AmberPrototype() {
   const [screen, setScreen] = useState(S.OVERVIEW);
+  const [announcement, setAnnouncement] = useState("");
+  const [notesOpen, setNotesOpen] = useState(false);
+
+  const screenIndex = SCREEN_META.findIndex(s => s.id === screen);
+  const prevMeta = screenIndex > 0 ? SCREEN_META[screenIndex - 1] : null;
+  const nextMeta = screenIndex < SCREEN_META.length - 1 ? SCREEN_META[screenIndex + 1] : null;
+  const currentMeta = SCREEN_META[screenIndex];
+
+  const navigate = (id) => {
+    setScreen(id);
+    setNotesOpen(false);
+    const meta = SCREEN_META.find(s => s.id === id);
+    if (meta) {
+      const idx = SCREEN_META.findIndex(s => s.id === id);
+      setAnnouncement(`Now viewing screen ${idx + 1} of ${SCREEN_META.length}: ${meta.label}`);
+    }
+  };
 
   const allNotes = {
     [S.OVERVIEW]: overviewNotes,
@@ -1997,99 +2238,174 @@ export default function AmberPrototype() {
   };
 
   const screens = {
-    [S.OVERVIEW]: <OverviewScreen onNav={setScreen} />,
-    [S.INVITE]: <InviteScreen onNav={setScreen} />,
-    [S.ABOUT]: <AboutScreen onNav={setScreen} />,
-    [S.APPLY]: <ApplyScreen onNav={setScreen} />,
-    [S.ELICIT_INTRO]: <ElicitIntroScreen onNav={setScreen} />,
-    [S.ELICIT_CHAT]: <ElicitChatScreen onNav={setScreen} />,
-    [S.UNDERSTOOD]: <UnderstoodScreen onNav={setScreen} />,
-    [S.MATCH]: <MatchScreen onNav={setScreen} />,
-    [S.BRIDGE]: <BridgeScreen onNav={setScreen} />,
-    [S.CONSENT]: <ConsentScreen onNav={setScreen} />,
-    [S.HANDOFF]: <HandoffScreen onNav={setScreen} />,
-    [S.OUTCOME]: <OutcomeScreen onNav={setScreen} />,
-    [S.GOVERNANCE]: <GovernanceScreen onNav={setScreen} />,
-    [S.TRENDS]: <TrendsScreen onNav={setScreen} />,
+    [S.OVERVIEW]: <OverviewScreen onNav={navigate} />,
+    [S.INVITE]: <InviteScreen onNav={navigate} />,
+    [S.ABOUT]: <AboutScreen onNav={navigate} />,
+    [S.APPLY]: <ApplyScreen onNav={navigate} />,
+    [S.ELICIT_INTRO]: <ElicitIntroScreen onNav={navigate} />,
+    [S.ELICIT_CHAT]: <ElicitChatScreen onNav={navigate} />,
+    [S.UNDERSTOOD]: <UnderstoodScreen onNav={navigate} />,
+    [S.MATCH]: <MatchScreen onNav={navigate} />,
+    [S.BRIDGE]: <BridgeScreen onNav={navigate} />,
+    [S.CONSENT]: <ConsentScreen onNav={navigate} />,
+    [S.HANDOFF]: <HandoffScreen onNav={navigate} />,
+    [S.OUTCOME]: <OutcomeScreen onNav={navigate} />,
+    [S.GOVERNANCE]: <GovernanceScreen onNav={navigate} />,
+    [S.TRENDS]: <TrendsScreen onNav={navigate} />,
   };
+
+  const currentNotes = allNotes[screen] || [];
 
   return (
     <div style={{ minHeight: "100vh", background: "#F0EDE7", fontFamily: font.sans }}>
-      <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Libre+Franklin:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+      <GlobalStyles />
 
-      {/* Header */}
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "36px 32px 0" }}>
+      <a href="#main-content" className="a-skip">Skip to main content</a>
+
+      {/* ARIA live region — announces screen changes */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="a-sr">
+        {announcement}
+      </div>
+
+      {/* Mobile compact header */}
+      <div className="a-hdr-mobile">
+        <AmberMark size={22} />
+        <span style={{ fontFamily: font.mono, fontSize: 9.5, color: C.textSecondary, letterSpacing: "0.08em" }}>
+          AMBER · RESEARCH PROTOTYPE
+        </span>
+      </div>
+
+      {/* Mobile sticky nav bar (Prev / Progress / Next) */}
+      <nav className="a-mobile-nav" aria-label="Prototype screen navigation">
+        <button
+          className="a-nav-btn"
+          onClick={() => prevMeta && navigate(prevMeta.id)}
+          disabled={!prevMeta}
+          aria-label={prevMeta ? `Previous screen: ${prevMeta.label}` : "No previous screen"}
+        >
+          <span aria-hidden="true">‹</span>
+        </button>
+
+        <div className="a-nav-progress" aria-current="step"
+          aria-label={`Screen ${screenIndex + 1} of ${SCREEN_META.length}: ${currentMeta?.label}`}>
+          <div style={{
+            fontFamily: font.mono, fontSize: 9, color: C.textSecondary,
+            letterSpacing: "0.1em", textTransform: "uppercase",
+          }}>
+            Screen {screenIndex + 1} of {SCREEN_META.length}
+          </div>
+          <div style={{ fontFamily: font.sans, fontSize: 13, fontWeight: 600, color: C.text, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {currentMeta?.label}
+          </div>
+        </div>
+
+        <button
+          className={`a-nav-btn${nextMeta ? " a-nav-btn-next" : ""}`}
+          onClick={() => nextMeta && navigate(nextMeta.id)}
+          disabled={!nextMeta}
+          aria-label={nextMeta ? `Next screen: ${nextMeta.label}` : "No next screen"}
+        >
+          <span aria-hidden="true">›</span>
+        </button>
+      </nav>
+
+      {/* Desktop header */}
+      <div className="a-hdr">
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
           <AmberMark size={28} />
-          <span style={{ fontFamily: font.mono, fontSize: 11, color: C.textMuted, letterSpacing: "0.08em" }}>
+          <span style={{ fontFamily: font.mono, fontSize: 11, color: C.textSecondary, letterSpacing: "0.08em" }}>
             RESEARCH PROTOTYPE
           </span>
         </div>
         <h1 style={{
           fontFamily: font.serif, fontSize: 34, fontWeight: 500,
           color: C.text, margin: "0 0 10px", lineHeight: 1.2,
-        }}>
-          Amber
-        </h1>
+        }}>Amber</h1>
         <p style={{
           fontFamily: font.serif, fontSize: 17, color: C.textSecondary,
           margin: "0 0 8px", lineHeight: 1.6, maxWidth: 680, fontStyle: "italic",
         }}>
           How might a platform make valuable relational connection more explicit and legible, without losing the trust, discretion, and high-status signals that elite private networks depend on?
         </p>
-        <p style={{
-          fontFamily: font.mono, fontSize: 10.5, color: C.textMuted,
-          margin: "0 0 24px",
-        }}>
+        <p style={{ fontFamily: font.mono, fontSize: 10.5, color: C.textSecondary, margin: "0 0 24px" }}>
           Re:Form Assessment 2 · Product Prototype · Student ID 24000132957 · LIS MASc 2024/26
         </p>
       </div>
 
-      {/* Navigation */}
-      <div style={{
-        maxWidth: 900, margin: "0 auto", padding: "0 32px 24px",
-        display: "flex", gap: 5, flexWrap: "wrap",
-      }}>
-        {SCREEN_META.map((s) => (
+      {/* Desktop tab nav */}
+      <nav className="a-tabs" aria-label="Prototype screens">
+        {SCREEN_META.map((s, idx) => (
           <button
             key={s.id}
-            onClick={() => setScreen(s.id)}
+            className="a-tab"
+            onClick={() => navigate(s.id)}
+            aria-current={screen === s.id ? "step" : undefined}
+            aria-label={`Screen ${idx + 1} of ${SCREEN_META.length}: ${s.label}`}
             style={{
-              padding: "7px 14px", borderRadius: 8,
               border: screen === s.id ? `1.5px solid ${C.text}` : `1px solid ${C.border}`,
               background: screen === s.id ? C.text : C.surface,
               color: screen === s.id ? C.bg : C.textSecondary,
-              fontFamily: font.sans, fontSize: 12, fontWeight: 500,
-              cursor: "pointer", transition: "all 0.15s",
-              display: "flex", alignItems: "center", gap: 6,
             }}
           >
-            <span style={{ fontFamily: font.mono, fontSize: 10, opacity: 0.5 }}>{s.short}</span>
+            <span style={{ fontFamily: font.mono, fontSize: 10, opacity: 0.5 }} aria-hidden="true">
+              {s.short}
+            </span>
             {s.label}
           </button>
         ))}
-      </div>
+      </nav>
 
-      {/* Content: Phone + Notes */}
-      <div style={{
-        maxWidth: 900, margin: "0 auto", padding: "0 32px 48px",
-        display: "flex", gap: 48, justifyContent: "center", alignItems: "flex-start",
-      }}>
-        {screens[screen]}
-        <Notes items={allNotes[screen] || []} />
-      </div>
+      <main id="main-content">
+        <div className="a-layout">
+          {screens[screen]}
 
-      {/* Footer */}
-      <div style={{
-        maxWidth: 900, margin: "0 auto", padding: "0 32px 40px",
-        textAlign: "center",
-      }}>
+          <div className="a-notes">
+            <div className="a-notes-hdr">Design decisions</div>
+            <button
+              className="a-notes-toggle"
+              aria-expanded={notesOpen}
+              aria-controls="a-notes-body"
+              onClick={() => setNotesOpen(v => !v)}
+            >
+              <span>Design annotations ({currentNotes.length})</span>
+              <span aria-hidden="true" style={{ fontSize: 18, color: C.amber, lineHeight: 1 }}>
+                {notesOpen ? "−" : "+"}
+              </span>
+            </button>
+            <div
+              id="a-notes-body"
+              className={`a-notes-body${notesOpen ? "" : " a-hidden"}`}
+              role="region"
+              aria-label={`Design annotations for ${currentMeta?.label}`}
+            >
+              {currentNotes.map((item, i) => (
+                <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <span style={{
+                    fontFamily: font.mono, fontSize: 10, color: C.amber,
+                    fontWeight: 600, flexShrink: 0, marginTop: 2,
+                  }}>
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <p style={{
+                    fontFamily: font.sans, fontSize: 12.5, color: C.textSecondary,
+                    lineHeight: 1.65, margin: 0,
+                  }}>
+                    {item}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 32px 40px", textAlign: "center" }}>
         <div style={{ height: 1, background: C.border, marginBottom: 20 }} />
         <p style={{
-          fontFamily: font.mono, fontSize: 10.5, color: C.textMuted,
+          fontFamily: font.mono, fontSize: 10.5, color: C.textSecondary,
           lineHeight: 1.7, maxWidth: 520, margin: "0 auto",
         }}>
-          14 screens · Interactive prototype with design annotations · Navigate using the tabs above or the in-screen controls
+          14 screens · Interactive prototype with design annotations · Navigate using the tabs or the in-screen controls
         </p>
       </div>
     </div>
