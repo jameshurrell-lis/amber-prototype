@@ -247,10 +247,9 @@ const GLOBAL_CSS = `
   @media (max-width: 680px) {
     .a-hdr { display: none; }
     .a-hdr-mobile {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 16px 8px;
+      display: block;
+      padding: 16px 16px 14px;
+      border-bottom: 1px solid #E8E3DB;
     }
 
     .a-tabs { display: none; }
@@ -2267,12 +2266,30 @@ export default function AmberPrototype() {
         {announcement}
       </div>
 
-      {/* Mobile compact header */}
+      {/* Mobile header — full submission info */}
       <div className="a-hdr-mobile">
-        <AmberMark size={22} />
-        <span style={{ fontFamily: font.mono, fontSize: 9.5, color: C.textSecondary, letterSpacing: "0.08em" }}>
-          AMBER · RESEARCH PROTOTYPE
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <AmberMark size={22} />
+          <span style={{ fontFamily: font.mono, fontSize: 9.5, color: C.textSecondary, letterSpacing: "0.08em" }}>
+            RESEARCH PROTOTYPE
+          </span>
+        </div>
+        <h1 style={{
+          fontFamily: font.serif, fontSize: 26, fontWeight: 500,
+          color: C.text, margin: "0 0 8px", lineHeight: 1.2,
+        }}>Amber</h1>
+        <p style={{
+          fontFamily: font.serif, fontSize: 13.5, color: C.textSecondary,
+          margin: "0 0 8px", lineHeight: 1.55, fontStyle: "italic",
+        }}>
+          How might a platform make valuable relational connection more explicit and legible, without losing the trust, discretion, and high-status signals that elite private networks depend on?
+        </p>
+        <p style={{
+          fontFamily: font.mono, fontSize: 9.5, color: C.textSecondary,
+          margin: 0, lineHeight: 1.5,
+        }}>
+          Re:Form Assessment 2 · Product Prototype · Student ID 24000132957 · LIS MASc 2024/26
+        </p>
       </div>
 
       {/* Mobile sticky nav bar (Prev / Progress / Next) */}
